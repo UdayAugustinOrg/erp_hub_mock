@@ -67,9 +67,9 @@ const DOCTYPES = {
     cols: [['supplier_group', 'Group'], ['country', 'Country'], ['tax_id', 'VAT number'], ['default_currency', 'Currency']] },
   item: { src: 'items', id: 'item_code', label: 'Items', one: 'Item', module: 'stock', icon: 'box',
     cols: [['item_name', 'Item name'], ['item_group', 'Item group'], ['is_stock_item', 'Stock item', (v) => (v ? 'Yes' : 'No')], ['stock_uom', 'UOM'], ['customs_tariff_number', 'HS code']], status: (r) => r.item_group },
-  lead: { src: 'leads', label: 'Leads', one: 'Lead', module: 'crm', icon: 'user',
+  lead: { src: 'leads', label: 'Leads', one: 'Lead', module: 'selling', icon: 'user',
     cols: [['lead_name', 'Contact'], ['company_name', 'Organisation'], ['source', 'Source']] },
-  opportunity: { src: 'opportunities', label: 'Opportunities', one: 'Opportunity', module: 'crm', icon: 'star',
+  opportunity: { src: 'opportunities', label: 'Opportunities', one: 'Opportunity', module: 'selling', icon: 'star',
     cols: [['party_name', 'Party', 'party'], ['sales_stage', 'Sales stage'], ['opportunity_amount', 'Amount', 'money']] },
   quotation: { src: 'quotations', label: 'Quotations', one: 'Quotation', module: 'selling', icon: 'file',
     cols: [['party_name', 'Party', 'party'], ['transaction_date', 'Date', 'date'], ['grand_total', 'Grand total', 'money']] },
@@ -103,18 +103,6 @@ const DOCTYPES = {
     cols: [['customer', 'Customer'], ['item_code', 'Item'], ['complaint_date', 'Reported', 'date'], ['complaint', 'Complaint', 'clip']] },
   'maintenance-visit': { src: 'maintenance_visits', label: 'Maintenance Visits', one: 'Maintenance Visit', module: 'support', icon: 'wrench', status: (r) => r.completion_status,
     cols: [['customer', 'Customer'], ['mntc_date', 'Visit date', 'date'], ['maintenance_type', 'Type'], ['_engineer', 'Engineer']] },
-  project: { src: 'projects', label: 'Projects', one: 'Project', module: 'projects', icon: 'folder',
-    cols: [['project_name', 'Project'], ['customer', 'Customer'], ['percent_complete', '% Complete', 'pct'], ['estimated_costing', 'Estimated cost', 'omr']] },
-  task: { src: 'tasks', label: 'Tasks', one: 'Task', module: 'projects', icon: 'check',
-    cols: [['subject', 'Subject'], ['project', 'Project'], ['exp_end_date', 'Expected end', 'date']] },
-  timesheet: { src: 'timesheets', label: 'Timesheets', one: 'Timesheet', module: 'projects', icon: 'clock',
-    cols: [['employee_name', 'Employee'], ['_activity', 'Work for'], ['total_hours', 'Hours', 'n1'], ['total_billable_amount', 'Billable', 'omr']] },
-  employee: { src: 'employees', label: 'Employees', one: 'Employee', module: 'hr', icon: 'id',
-    cols: [['employee_name', 'Name'], ['designation', 'Designation'], ['department', 'Department'], ['date_of_joining', 'Joined', 'date']] },
-  'leave-application': { src: 'leaves', label: 'Leave Applications', one: 'Leave Application', module: 'leaves', icon: 'calendar',
-    cols: [['employee_name', 'Employee'], ['leave_type', 'Leave type'], ['from_date', 'From', 'date'], ['to_date', 'To', 'date']] },
-  'salary-slip': { src: 'salary_slips', label: 'Salary Slips', one: 'Salary Slip', module: 'payroll', icon: 'coins',
-    cols: [['employee_name', 'Employee'], ['start_date', 'Period', 'month'], ['gross_pay', 'Gross pay', 'omr'], ['total_deduction', 'Deductions', 'omr'], ['net_pay', 'Net pay', 'omr']] },
   asset: { src: 'assets', label: 'Assets', one: 'Asset', module: 'assets', icon: 'building',
     cols: [['asset_name', 'Asset'], ['asset_category', 'Category'], ['available_for_use_date', 'In use from', 'date'], ['gross_purchase_amount', 'Gross value', 'omr'], ['_dep', 'Depreciation booked', 'omr'], ['_nbv', 'Net book value', 'omr']] },
 };
@@ -246,7 +234,8 @@ function itemsOf(doc) {
 /* Engineer for a maintenance visit / service job, from the linked timesheet */
 function engineerFor(name) {
   const ts = linkedOf(name, 'timesheet')[0];
-  return ts ? getDoc('timesheet', ts).employee_name : null;
+  const t = ts && D.timesheets.find((x) => x.name === ts);
+  return t ? t.employee_name : null;
 }
 
 /* Derived helper columns */

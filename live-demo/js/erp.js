@@ -5,31 +5,21 @@
    ========================================================== */
 
 
-/* ---------- Workspaces (same list and order as the live Infinity ERP sidebar) ----------
-   Two live entries are left out: the vendor's settings and integrations workspaces. */
+/* ---------- Sidebar: the live Infinity ERP entries the demo needs, in live order ---------- */
 const RAIL = [
   { id: 'home', label: 'Home', icon: 'home' },
-  { label: 'Accounting', icon: 'document-list', group: [['accounting', 'Accounting', 'document-list'], ['payables', 'Payables', 'document-list'], ['receivables', 'Receivables', 'grid-3'], ['financial-reports', 'Financial Reports', 'grid-3']] },
+  { label: 'Accounting', icon: 'document-list', group: [
+    ['#/erp/list/sales-invoice', 'Sales Invoice', 'document-list'], ['#/erp/list/purchase-invoice', 'Purchase Invoice', 'document-list'],
+    ['#/erp/list/payment-entry', 'Payment Entry', 'document-list'], ['#/erp/list/journal-entry', 'Journal Entry', 'document-list'],
+    ['#/erp/report/coa', 'Chart of Accounts', 'grid-3'], ['#/erp/report/pl', 'Profit and Loss', 'grid-3'], ['#/erp/report/bs', 'Balance Sheet', 'grid-3'],
+    ['#/erp/report/gl', 'General Ledger', 'grid-3'], ['#/erp/report/ar', 'Accounts Receivable', 'grid-3'], ['#/erp/report/ap', 'Accounts Payable', 'grid-3']] },
   { id: 'buying', label: 'Buying', icon: 'check-list-3' },
   { id: 'selling', label: 'Selling', icon: 'briefcase' },
   { id: 'assets', label: 'Assets', icon: 'document-report' },
   { id: 'stock', label: 'Stock', icon: 'clipboard' },
-  { label: 'HR', icon: 'person', group: [['hr', 'HR', 'person'], ['recruitment', 'Recruitment', 'grid-3'], ['employee-lifecycle', 'Employee Lifecycle', 'person'], ['performance', 'Performance', 'grid-3'], ['shift-attendance', 'Shift & Attendance', 'grid-3'], ['expense-claims', 'Expense Claims', 'grid-3'], ['leaves', 'Leaves', 'grid-3']] },
-  { id: 'manufacturing', label: 'Manufacturing', icon: 'cog' },
-  { id: 'quality', label: 'Quality', icon: 'check-all' },
-  { id: 'projects', label: 'Projects', icon: 'document-list' },
   { id: 'support', label: 'Support', icon: 'chat-bubble' },
-  { id: 'users', label: 'Users', icon: 'person' },
-  { id: 'website', label: 'Website', icon: 'laptop' },
-  { label: 'Payroll', icon: 'document-list', group: [['payroll', 'Payroll', 'document-list'], ['salary-payout', 'Salary Payout', 'document-list'], ['tax-benefits', 'Tax & Benefits', 'document-list']] },
-  { id: 'crm', label: 'CRM', icon: 'briefcase' },
-  { id: 'tools', label: 'Tools', icon: 'cog' },
-  { id: 'integrations', label: 'Integrations', icon: 'grid-3' },
-  { id: 'welcome-workspace', label: 'Welcome Workspace', icon: 'cog' },
-  { id: 'build', label: 'Build', icon: 'cog' },
 ];
-const WS_LABEL = {};
-RAIL.forEach((r) => { if (r.id) WS_LABEL[r.id] = r.label; (r.group || []).forEach(([id, l]) => { WS_LABEL[id] = l; }); });
+const WS_LABEL = { home: 'Home', accounting: 'Accounting', buying: 'Buying', selling: 'Selling', assets: 'Assets', stock: 'Stock', support: 'Support' };
 const REPORTS = {
   coa: { label: 'Chart of Accounts', icon: 'tree', module: 'accounting' },
   gl: { label: 'General Ledger', icon: 'book', module: 'accounting' },
@@ -38,7 +28,6 @@ const REPORTS = {
   ar: { label: 'Accounts Receivable', icon: 'inbox', module: 'accounting' },
   ap: { label: 'Accounts Payable', icon: 'send', module: 'accounting' },
   stock: { label: 'Stock Balance', icon: 'box', module: 'stock' },
-  attendance: { label: 'Monthly Attendance Sheet', icon: 'calendar', module: 'shift-attendance' },
 };
 const wsHref = (id) => (id === 'home' ? '#/erp/home' : `#/erp/ws/${id}`);
 
@@ -103,15 +92,17 @@ function currentWs(r) {
 }
 function erpSidebar(r) {
   const cur = currentWs(r);
+  const path = '#' + r.raw.split('?')[0];
   const chev = '<svg class="rail-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>';
+  const subOn = (href) => path === href || (path.startsWith(href.replace('/list/', '/form/') + '/'));
   return `
   <div class="rail-logo"><a href="#/erp/home" title="Infinity ERP"><img src="img/infinity-logo.png" alt="Infinity ERP"></a></div>
   <div class="rail-nav" data-t="sidebar"><ul class="rail-list">
     ${RAIL.map((it) => {
       if (!it.group) return `<li class="rail-li ${cur === it.id ? 'active' : ''}"><a class="rail-a" href="${wsHref(it.id)}" title="${esc(it.label)}">${lmd(it.icon)}<span class="rail-label">${esc(it.label)}</span></a></li>`;
-      const has = it.group.some(([id]) => id === cur);
+      const has = cur === 'accounting';
       return `<li class="rail-li group ${has ? 'open has-active' : ''}"><a class="rail-a" href="javascript:void(0)" data-rail-group title="${esc(it.label)}">${lmd(it.icon)}<span class="rail-label">${esc(it.label)}</span>${chev}</a>
-        <ul class="rail-box">${it.group.map(([id, l, ic]) => `<li><a class="rail-sub ${cur === id ? 'active' : ''}" href="${wsHref(id)}">${lmd(ic)}<span>${esc(l)}</span></a></li>`).join('')}</ul></li>`;
+        <ul class="rail-box">${it.group.map(([href, l, ic]) => `<li><a class="rail-sub ${subOn(href) ? 'active' : ''}" href="${href}">${lmd(ic)}<span>${esc(l)}</span></a></li>`).join('')}</ul></li>`;
     }).join('')}
   </ul></div>`;
 }
@@ -203,7 +194,7 @@ function erpHome() {
       <div class="tbl-pad"><table class="tbl"><tbody>${[...inv].sort((a, b) => b.posting_date.localeCompare(a.posting_date) || b.name.localeCompare(a.name)).slice(0, 7).map((s) => `<tr class="click" data-href="${formHref('sales-invoice', s.name)}"><td class="link">${esc(s.customer)}</td><td>${pill(s.status, statusTone(s.status))}</td><td class="num">${num(s.grand_total)}</td><td class="muted">${s.name}</td></tr>`).join('')}</tbody></table></div></div>
   </div>
   ${shortcutsHtml(['item', 'customer', 'supplier', 'sales-invoice'], 'Your Shortcuts')}
-  ${linkCardsHtml([['Accounting', ['report:coa', 'payment-entry', 'journal-entry']], ['Stock', ['item', 'stock-entry', 'report:stock']], ['CRM', ['lead', 'opportunity', 'customer']]])}`;
+  ${linkCardsHtml([['Accounting', ['report:coa', 'payment-entry', 'journal-entry']], ['Stock', ['item', 'stock-entry', 'report:stock']], ['Selling', ['lead', 'opportunity', 'customer']]])}`;
 }
 
 /* ---------- Workspaces ---------- */
@@ -211,51 +202,31 @@ const WS = {
   accounting: { flow: ['Record to report', [['sales-invoice', 'Sales post automatically'], ['purchase-invoice', 'Purchases post automatically'], ['payment-entry', 'Receipts and payments'], ['journal-entry', 'Adjustments and accruals']]],
     quick: ['sales-invoice', 'purchase-invoice', 'payment-entry', 'journal-entry', 'report:coa', 'report:gl', 'report:pl', 'report:bs'],
     cards: [['Accounting Masters', ['report:coa', 'customer', 'supplier']], ['Payables', ['purchase-invoice', 'payment-entry', 'report:ap']], ['Receivables', ['sales-invoice', 'payment-entry', 'report:ar']]] },
-  payables: { quick: ['purchase-invoice', 'payment-entry', 'supplier', 'report:ap'], cards: [['Payables', ['purchase-invoice', 'payment-entry']], ['Reports', ['report:ap', 'report:gl']], ['Masters', ['supplier']]] },
-  receivables: { quick: ['sales-invoice', 'payment-entry', 'customer', 'report:ar'], cards: [['Receivables', ['sales-invoice', 'payment-entry']], ['Reports', ['report:ar', 'report:gl']], ['Masters', ['customer']]] },
-  'financial-reports': { quick: ['report:pl', 'report:bs', 'report:gl', 'report:coa'], cards: [['Financial Statements', ['report:pl', 'report:bs']], ['Ledgers', ['report:gl', 'report:coa', 'journal-entry']], ['Ageing', ['report:ar', 'report:ap']]] },
   buying: { flow: ['Procure to pay', [['material-request', 'Stores ask for stock'], ['rfq', 'Invite suppliers'], ['supplier-quotation', 'Compare offers'], ['purchase-order', 'Order the best offer'], ['purchase-receipt', 'Receive the goods'], ['purchase-invoice', 'Book the bill'], ['payment-entry', 'Pay the supplier']]],
-    quick: ['material-request', 'rfq', 'supplier-quotation', 'purchase-order', 'purchase-receipt', 'purchase-invoice', 'supplier', 'item'],
+    quick: ['purchase-order', 'purchase-receipt', 'purchase-invoice', 'landed-cost-voucher', 'material-request', 'rfq', 'supplier-quotation', 'supplier'],
     cards: [['Buying', ['material-request', 'purchase-order', 'purchase-invoice']], ['Supplier', ['supplier', 'supplier-quotation', 'rfq']], ['Imports', ['purchase-receipt', 'landed-cost-voucher', 'report:ap']]] },
   selling: { flow: ['Lead to cash', [['lead', 'Capture the enquiry'], ['opportunity', 'Qualify the deal'], ['quotation', 'Send the price'], ['sales-order', 'Confirm the order'], ['delivery-note', 'Ship the goods'], ['sales-invoice', 'Bill + e-invoice'], ['payment-entry', 'Collect payment']]],
-    quick: ['item', 'quotation', 'sales-order', 'delivery-note', 'sales-invoice', 'customer'],
-    cards: [['Selling', ['customer', 'quotation', 'sales-order']], ['Fulfilment And Billing', ['delivery-note', 'sales-invoice', 'report:ar']], ['Items And Pricing', ['item']]] },
-  crm: { flow: ['Enquiry to customer', [['lead', 'Capture the enquiry'], ['opportunity', 'Qualify the deal'], ['quotation', 'Send the price'], ['customer', 'Win the customer']]],
-    quick: ['lead', 'opportunity', 'quotation', 'customer'], cards: [['Sales Pipeline', ['lead', 'opportunity']], ['Customers', ['customer', 'quotation']]] },
+    quick: ['sales-invoice', 'quotation', 'sales-order', 'delivery-note', 'lead', 'opportunity', 'customer', 'item'],
+    cards: [['Selling', ['customer', 'quotation', 'sales-order']], ['Fulfilment And Billing', ['delivery-note', 'sales-invoice', 'report:ar']], ['Pipeline', ['lead', 'opportunity']]] },
   stock: { flow: ['Stock and landed cost', [['purchase-receipt', 'Goods come in'], ['landed-cost-voucher', 'Add freight, duty, clearing'], ['stock-entry', 'Move or issue stock'], ['delivery-note', 'Goods go out']]],
-    quick: ['item', 'purchase-receipt', 'delivery-note', 'stock-entry', 'landed-cost-voucher', 'report:stock'],
+    quick: ['item', 'landed-cost-voucher', 'purchase-receipt', 'delivery-note', 'stock-entry', 'report:stock'],
     cards: [['Items', ['item', 'report:stock']], ['Stock Transactions', ['purchase-receipt', 'delivery-note', 'stock-entry']], ['Landed Cost', ['landed-cost-voucher']]] },
   assets: { flow: ['Buy, use, depreciate', [['purchase-invoice', 'Asset purchased'], ['asset', 'Asset register'], ['journal-entry', 'Monthly depreciation']]],
     quick: ['asset', 'journal-entry'], cards: [['Assets', ['asset']], ['Accounting', ['journal-entry', 'report:bs']]] },
-  hr: { flow: ['Hire to pay', [['employee', 'Employee records'], ['leave-application', 'Leave and attendance'], ['salary-slip', 'Monthly payroll'], ['journal-entry', 'Payroll posted to accounts']]],
-    quick: ['employee', 'leave-application', 'report:attendance', 'salary-slip'], cards: [['Employee', ['employee']], ['Attendance And Leave', ['leave-application', 'report:attendance']], ['Payroll', ['salary-slip']]] },
-  leaves: { quick: ['leave-application', 'employee'], cards: [['Leaves', ['leave-application']], ['Reports', ['report:attendance']]] },
-  'shift-attendance': { quick: ['report:attendance', 'employee', 'leave-application'], cards: [['Attendance', ['report:attendance', 'leave-application']]] },
-  payroll: { quick: ['salary-slip', 'employee', 'journal-entry'], cards: [['Payroll', ['salary-slip']], ['Accounting', ['journal-entry']]] },
-  'salary-payout': { quick: ['salary-slip', 'journal-entry'], cards: [['Salary Payout', ['salary-slip', 'journal-entry']]] },
-  projects: { flow: ['Plan, track and bill', [['project', 'Set up the job'], ['task', 'Break into tasks'], ['timesheet', 'Log hours'], ['sales-invoice', 'Bill the customer']]],
-    quick: ['project', 'task', 'timesheet'], cards: [['Projects', ['project', 'task']], ['Time Tracking', ['timesheet']]] },
-  support: { flow: ['Complaint to repair invoice', [['sales-invoice', 'Motor sold'], ['warranty-claim', 'Customer complaint'], ['maintenance-visit', 'Engineer visit'], ['timesheet', 'Labour hours'], ['sales-invoice', 'Repair invoice']]],
-    quick: ['warranty-claim', 'maintenance-visit', 'timesheet', 'sales-invoice'], cards: [['Warranty', ['warranty-claim']], ['Maintenance', ['maintenance-visit', 'timesheet']]] },
+  support: { flow: ['Complaint to repair invoice', [['sales-invoice', 'Motor sold'], ['warranty-claim', 'Customer complaint'], ['maintenance-visit', 'Engineer visit'], ['sales-invoice', 'Repair invoice']]],
+    quick: ['warranty-claim', 'maintenance-visit', 'sales-invoice'], cards: [['Warranty', ['warranty-claim']], ['Maintenance', ['maintenance-visit']], ['Billing', ['sales-invoice', 'report:ar']]] },
 };
 function flowCard(title, steps) {
   return `<div class="card" data-t="ws-flow"><div class="card-h"><h3>${title}</h3><span class="sub">Click a step to open its documents</span></div><div class="card-b"><div class="chain">${steps.map(([s, sub], i) => `${i ? `<span class="arrow">${icon('arrow')}</span>` : ''}<a class="node" href="#/erp/list/${s}"><div class="k">${icon(DOCTYPES[s].icon)}Step ${i + 1}</div><div class="t">${DOCTYPES[s].one}</div><div class="s">${sub}</div></a>`).join('')}</div></div></div>`;
 }
 function workspace(id) {
-  const label = WS_LABEL[id];
-  if (!label) return notFound();
   const w = WS[id];
-  if (!w) {
-    return `${pageTitle(label)}<div class="card"><div class="card-b" style="padding:48px 24px;text-align:center"><div style="font-size:16px;font-weight:600">${esc(label)}</div>
-      <p class="muted" style="margin-top:6px">This workspace is part of Infinity ERP but has no records in the demo company.</p>
-      <a class="btn btn-default" style="margin-top:16px" href="#/erp/home">Back to Home</a></div></div>`;
-  }
-  return `${pageTitle(label)}
+  if (!w) return notFound();
+  return `${pageTitle(WS_LABEL[id])}
   ${w.flow ? flowCard(w.flow[0], w.flow[1]) : ''}
   ${shortcutsHtml(w.quick)}
   ${linkCardsHtml(w.cards)}`;
 }
-
 /* ---------- List view (live layout: filter inputs, rounded header row, title + status first) ---------- */
 const TITLE_FIELDS = ['customer', 'supplier', 'party', 'employee_name', 'asset_name', 'project_name', 'subject', 'item_name', 'lead_name', 'party_name', 'stock_entry_type', 'voucher_type', 'material_request_type'];
 function titleField(slug) {
@@ -276,7 +247,6 @@ function listView(slug, query) {
   const actions = `<button class="btn btn-default" data-act="mock">${icon('list')}List View${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="refresh" aria-label="Refresh">${icon('refresh')}</button><button class="btn btn-icon" data-act="mock" aria-label="Menu">${icon('more')}</button><button class="btn btn-primary" data-act="mock">${icon('plus')}Add ${t.one}</button>`;
   return `${crumbs([[WS_LABEL[t.module], wsHref(t.module)], [t.one]])}
   ${pageTitle(t.one, actions, true)}
-  ${slug === 'salary-slip' ? payrollSummary() : ''}
   <div class="layout-card" data-t="list">
     <div class="toolbar" data-t="list-filters">
       <span class="fbox">ID</span>
@@ -417,17 +387,16 @@ function docChain(slug, d) {
   if (Object.keys(found).length < 2) return '';
   return chainHtml(types.map((s) => ({ slug: s, name: found[s] })), d.name);
 }
-/* Service journey: sold invoice -> claim -> visit -> timesheet -> repair invoice */
+/* Service journey: sold invoice -> claim -> visit -> repair invoice */
 function serviceChain(claimName, curName) {
   const c = getDoc('warranty-claim', claimName);
   const sinvs = linkedOf(claimName, 'sales-invoice');
   const repair = sinvs.find((s) => getDoc('sales-invoice', s).items.some((i) => ['DEMO-LAB-HR', 'DEMO-SRV-REWIND'].includes(i.item_code)));
   const sold = sinvs.find((s) => s !== repair);
   const visit = linkedOf(claimName, 'maintenance-visit').sort()[0] && linkedOf(claimName, 'maintenance-visit').find((v) => linkedOf(v, 'timesheet').length) || linkedOf(claimName, 'maintenance-visit')[0];
-  const ts = visit ? linkedOf(visit, 'timesheet')[0] : null;
   return chainHtml([
     { slug: 'sales-invoice', name: sold, label: 'Motor sold' }, { slug: 'warranty-claim', name: claimName }, { slug: 'maintenance-visit', name: visit },
-    { slug: 'timesheet', name: ts, label: 'Engineer hours' }, { slug: 'sales-invoice', name: repair, label: c.status === 'Closed' && !repair ? 'Free under warranty' : 'Repair invoice' },
+    { slug: 'sales-invoice', name: repair, label: c.status === 'Closed' && !repair ? 'Free under warranty' : 'Repair invoice' },
   ], curName);
 }
 
@@ -550,31 +519,8 @@ function visitSections(d) {
   const emp = eng && D.employees.find((e) => e.employee_name === eng);
   return `<div class="card" data-t="visit-purpose"><div class="card-h"><h3>Visit purpose and work done</h3></div>
     <table class="tbl"><thead><tr><th>Item</th><th>Against</th><th>Service person</th><th>Work done</th></tr></thead>
-    <tbody><tr><td>${c ? docLink(c.item_code) : '—'}</td><td>${claim ? docLink(claim) : '—'}</td><td>${emp ? `${docLink(emp.name, eng)}<div class="small muted">${emp.designation}</div>` : '<span class="muted">—</span>'}</td><td style="max-width:420px">${c ? esc(c.resolution_details || c.complaint) : '—'}</td></tr></tbody></table></div>
+    <tbody><tr><td>${c ? docLink(c.item_code) : '—'}</td><td>${claim ? docLink(claim) : '—'}</td><td>${emp ? `${esc(eng)}<div class="small muted">${emp.designation}</div>` : '<span class="muted">—</span>'}</td><td style="max-width:420px">${c ? esc(c.resolution_details || c.complaint) : '—'}</td></tr></tbody></table></div>
     ${claim ? serviceChain(claim, d.name) : ''}`;
-}
-
-function projectSections(d) {
-  const tasks = D.tasks.filter((t) => t.project === d.name);
-  const ts = linkedOf(d.name, 'timesheet').map((n) => getDoc('timesheet', n)).sort((a, b) => a.name.localeCompare(b.name));
-  const inv = linkedOf(d.name, 'sales-invoice')[0];
-  const cn = inv && D.sales_invoices.find((s) => s.return_against === inv);
-  return `<div class="grid g-3-2" data-t="project-tasks">
-    <div class="card"><div class="card-h"><h3>Tasks</h3><span class="sub">${tasks.filter((t) => t.status === 'Completed').length} of ${tasks.length} done</span></div>
-      <table class="tbl"><tbody>${tasks.map((t) => `<tr class="click" data-href="${formHref('task', t.name)}"><td class="link">${t.name}</td><td><b>${esc(t.subject)}</b></td><td class="small muted">Due ${fdate(t.exp_end_date)}</td><td>${pill(t.status)}</td></tr>`).join('')}</tbody></table></div>
-    <div class="card"><div class="card-h"><h3>Progress and billing</h3></div><div class="card-b">
-      <div class="prog-row"><span>Complete</span><div class="progress"><i style="width:${d.percent_complete}%"></i></div><span class="num">${pct(d.percent_complete)}</span></div>
-      <table class="totals" style="max-width:none;margin-top:12px">
-        <tr><td>Estimated cost</td><td class="num">${omr(d.estimated_costing)}</td></tr>
-        <tr><td>Hours logged</td><td class="num">${sum(ts, 'total_hours')} h</td></tr>
-        <tr><td>Billable value of hours</td><td class="num">${omr(sum(ts, 'total_billable_amount'))}</td></tr>
-        <tr class="gt"><td>Total billed</td><td class="num">${omr(d.total_billed_amount)}</td></tr></table>
-      ${inv ? `<div class="banner info small" style="margin-top:10px">${icon('info')}<span>Hours were billed on ${docLink(inv)}${cn ? `, then reversed by credit note ${docLink(cn.name)} (reason ${cn.custom_cn_reason_code}: ${CN_REASON[cn.custom_cn_reason_code]})` : ''}. Net billed so far: ${omr(d.total_billed_amount)}.</span></div>` : ''}
-    </div></div></div>
-    <div class="card"><div class="card-h"><h3>Timesheets</h3></div>
-      <table class="tbl"><thead><tr><th>Timesheet</th><th>Employee</th><th class="num">Hours</th><th class="num">Billable (OMR)</th><th>Status</th></tr></thead>
-      <tbody>${ts.map((t) => `<tr class="click" data-href="${formHref('timesheet', t.name)}"><td class="link">${t.name}</td><td>${esc(t.employee_name)}</td><td class="num">${t.total_hours}</td><td class="num">${num(t.total_billable_amount)}</td><td>${pill(t.status)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="2">Total</td><td class="num">${sum(ts, 'total_hours')}</td><td class="num">${num(sum(ts, 'total_billable_amount'))}</td><td></td></tr></tfoot></table></div>`;
 }
 
 function assetSections(d) {
@@ -642,12 +588,6 @@ function paymentSections(d) {
     <div class="card-b small muted" style="border-top:1px solid var(--line-2)">${d.payment_type === 'Receive' ? 'Received into' : 'Paid from'} ${bank.account_number} · ${esc(bank.account_name)}${fx ? `. Exchange difference posted by ${docLink(fx)} (${omr(getDoc('journal-entry', fx).total_debit)}).` : ''}</div></div>`;
 }
 
-function salarySections(d) {
-  return `<div class="card" data-t="slip"><div class="card-h"><h3>Pay summary</h3><span class="sub">October 2026</span></div><div class="card-b"><table class="totals">
-    <tr><td>Gross pay</td><td class="num">${omr(d.gross_pay)}</td></tr><tr><td>Total deductions <span class="small muted">· posted to 2630 PASI Contributions Payable</span></td><td class="num">− ${num(d.total_deduction)}</td></tr>
-    <tr class="gt"><td>Net pay</td><td class="num">${omr(d.net_pay)}</td></tr></table></div></div>`;
-}
-
 function formExtras(slug, d) {
   const cur = d.currency || 'OMR';
   const parts = [];
@@ -661,13 +601,11 @@ function formExtras(slug, d) {
   if (slug === 'rfq') parts.push(rfqCompare(d));
   if (slug === 'warranty-claim') parts.push(claimSections(d), serviceChain(d.name, d.name));
   if (slug === 'maintenance-visit') parts.push(visitSections(d));
-  if (slug === 'project') parts.push(projectSections(d));
   if (slug === 'asset') parts.push(assetSections(d));
   if (slug === 'customer') parts.push(customerSections(d));
   if (slug === 'item') parts.push(itemSections(d));
   if (slug === 'stock-entry') parts.push(steSections(d));
   if (slug === 'payment-entry') parts.push(paymentSections(d));
-  if (slug === 'salary-slip') parts.push(salarySections(d));
   return parts.join('');
 }
 
@@ -683,7 +621,6 @@ function formView(slug, name) {
   const title = d.customer || d.supplier || d.party || d.employee_name || d.asset_name || d.project_name || d.subject || d.item_name || d.lead_name || name;
   const extra = [];
   if (slug === 'maintenance-visit') extra.push(['Engineer', esc(d._engineer)]);
-  if (slug === 'timesheet') { extra.push(['Work for', esc(d._activity)]); extra.push(['Rate per hour', d.total_billable_amount ? omr(d.total_billable_amount / d.total_hours) : 'Not billable (warranty)']); }
   let banner = '';
   if (slug === 'sales-invoice' && d.is_return) banner = `<div class="banner info" data-t="return-banner">${icon('undo')}<span><b>Credit note</b> against ${docLink(d.return_against)} · reason <b>${d.custom_cn_reason_code}</b>: ${CN_REASON[d.custom_cn_reason_code]}. It reduces what ${esc(d.customer)} owes by ${omr(-d.grand_total)} and is e-invoiced as type 381.</span></div>`;
   if (slug === 'sales-invoice' && d.is_debit_note) banner = `<div class="banner warn" data-t="return-banner">${icon('plus')}<span><b>Debit note</b> against ${docLink(d.return_against)} · reason <b>${d.custom_cn_reason_code}</b>: ${CN_REASON[d.custom_cn_reason_code]}. It adds ${omr(d.grand_total)} to the original invoice and is e-invoiced as type 383.</span></div>`;
@@ -721,7 +658,6 @@ const REP_FILTERS = {
   ap: ['Infy Demo Company', '20-11-2026', 'Due Date', 'Supplier', 'Supplier Group', '30-60-90-120'],
   stock: ['Infy Demo Company', '01-10-2026', '20-11-2026', 'Item Group', 'Item', 'Warehouse'],
   coa: ['Infy Demo Company'],
-  attendance: ['Infy Demo Company', 'November', '2026', 'Employee', 'Department', 'Summarized View'],
 };
 const FILLED = /Infy|20\d\d|Yearly|Categorize|30-60|Summarized|November|Due Date/;
 function reportHead(k, sub, extra = '') {
@@ -870,33 +806,8 @@ function stockReport() {
     <div class="banner ok">${icon('checkcircle')}<span>Stock value ${omr(total)} agrees with ledger 1640 Inventory. Imported items carry their freight, duty and clearing (landed cost).</span></div></div></div>`;
 }
 
-function payrollSummary() {
-  const s = D.salary_slips;
-  return `<div class="card" data-t="payroll-summary"><div class="card-h"><h3>Payroll · October 2026</h3>${pill('Paid', 'ok')}<span class="right small muted">${s.length} employees</span></div>
-    <div class="card-b"><div class="grid g4">
-      <div><div class="muted small">Gross pay</div><div style="font-size:20px;font-weight:800">${omr(sum(s, 'gross_pay'))}</div></div>
-      <div><div class="muted small">Deductions</div><div style="font-size:20px;font-weight:800">${omr(r3(sum(s, 'total_deduction')))}</div></div>
-      <div><div class="muted small">Net paid</div><div style="font-size:20px;font-weight:800;color:var(--ok)">${omr(r3(sum(s, 'net_pay')))}</div></div>
-      <div><div class="muted small">Posted to accounts</div><div style="font-weight:600;margin-top:4px">${docLink('ACC-JV-2026-00011')} accrual<br>${docLink('ACC-JV-2026-00012')} bank payment</div></div>
-    </div></div></div>`;
-}
-
-function attendanceReport() {
-  const a = Object.fromEntries(D.attendance_summary.map((x) => [x.status, x.n]));
-  const total = sum(D.attendance_summary, 'n');
-  return `${reportHead('attendance', 'Attendance marked for all employees, November 2026')}
-  <div class="grid g4" data-t="att-tiles">
-    <div class="card kpi"><div class="lbl">${icon('calendar')}Days marked</div><div class="val">${total}</div><div class="foot">${D.employees.length} employees</div></div>
-    <div class="card kpi ok"><div class="lbl">${icon('check')}Present</div><div class="val">${a.Present}</div><div class="foot">${pct((a.Present / total) * 100)} attendance rate</div></div>
-    <div class="card kpi warn"><div class="lbl">${icon('calendar')}On leave</div><div class="val">${a['On Leave']}</div><div class="foot">Approved leave</div></div>
-    <div class="card kpi bad"><div class="lbl">${icon('x')}Absent</div><div class="val">${a.Absent}</div><div class="foot">Unplanned absence</div></div>
-  </div>
-  <div class="card"><div class="card-h"><h3>Leave applications</h3></div><table class="tbl"><thead><tr><th>Application</th><th>Employee</th><th>Leave type</th><th>From</th><th>To</th><th>Status</th></tr></thead>
-    <tbody>${D.leaves.map((l) => `<tr class="click" data-href="${formHref('leave-application', l.name)}"><td class="link">${l.name}</td><td>${esc(l.employee_name)}</td><td>${l.leave_type}</td><td>${fdate(l.from_date)}</td><td>${fdate(l.to_date)}</td><td>${pill(l.status)}</td></tr>`).join('')}</tbody></table></div>`;
-}
-
 function reportView(k) {
-  return ({ coa: coaReport, gl: glReport, pl: plReport, bs: bsReport, ar: arReport, ap: apReport, stock: stockReport, attendance: attendanceReport }[k] || notFound)();
+  return ({ coa: coaReport, gl: glReport, pl: plReport, bs: bsReport, ar: arReport, ap: apReport, stock: stockReport }[k] || notFound)();
 }
 function notFound() {
   return `${pageTitle('Page not found')}<div class="card card-b" style="text-align:center;padding:60px"><p class="muted"><a href="#/erp/home" style="color:var(--primary)">Back to Home</a></p></div>`;

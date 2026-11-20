@@ -187,17 +187,17 @@ const STEP = {
   },
   visit: {
     chapter: 'Service', title: 'An engineer visits',
-    body: 'Maintenance visit MAT-MVS-2026-00002 (breakdown, 15 Nov) is assigned to <b>Demo Employee 04</b>, Engineer. The work done is recorded on the visit.',
+    body: 'Maintenance visit MAT-MVS-2026-00002 (breakdown, 15 Nov) records the engineer’s visit to the site and the work done: bearings replaced, windings cleaned, full-load test.',
     target: '[data-t="visit-purpose"]', placement: 'bottom', setup: () => nav(F('maintenance-visit', 'MAT-MVS-2026-00002')),
   },
   journey: {
     chapter: 'Service', title: 'The whole repair on one line',
-    body: 'Sale, complaint, visit, engineer hours (timesheet TS-2026-00005, 3 hours) and the repair invoice. Click any step to open it.',
+    body: 'Sale, complaint, engineer visit and repair invoice, all linked. Click any step to open it.',
     target: '[data-t="chain"]', placement: 'top', setup: () => nav(F('maintenance-visit', 'MAT-MVS-2026-00002')),
   },
   repairInv: {
     chapter: 'Service', title: 'Repair invoice: labour hours plus parts',
-    body: 'ACC-SINV-2026-00014 bills <b>3 hours of repair labour</b> (DEMO-LAB-HR at 20.000/h) and <b>2 bearing sets</b>: OMR 84.000 + VAT = <b>OMR 88.200</b>. The hours come from the engineer’s timesheet.',
+    body: 'ACC-SINV-2026-00014 bills <b>3 hours of repair labour</b> (DEMO-LAB-HR at 20.000/h) and <b>2 bearing sets</b>: OMR 84.000 + VAT = <b>OMR 88.200</b>. Every labour hour is billed with the parts.',
     why: 'Every hour your engineers work gets billed. Nothing is lost between the workshop and accounts.',
     target: '[data-t="items"]', placement: 'top', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00014')),
   },
@@ -232,10 +232,10 @@ const STEP = {
     target: '[data-t="einvoice"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00014')),
   },
 
-  /* ---------- Accounts, HR & reports ---------- */
+  /* ---------- Accounts & reports ---------- */
   accWelcome: {
-    chapter: 'Welcome', title: 'Accounts, people and reports',
-    body: 'Everything you saw in sales, buying and service has already posted to the books. This tour looks at the finance and HR side.',
+    chapter: 'Welcome', title: 'Accounts and reports',
+    body: 'Everything you saw in sales, buying and service has already posted to the books. This tour walks through the finance side: accounts, statements, receivables, payables, stock and assets.',
     target: '[data-t="kpis"]', placement: 'bottom', setup: () => nav('/erp/home'),
   },
   coa: {
@@ -279,41 +279,21 @@ const STEP = {
     body: 'The forklift cost <b>OMR 9,500.000</b>. October depreciation of <b>OMR 137.903</b> was posted automatically (ACC-JV-2026-00010), leaving a net book value of OMR 9,362.097.',
     target: '[data-t="asset-dep"]', placement: 'bottom', setup: () => nav(F('asset', 'ACC-ASS-2026-00001')),
   },
-  employees: {
-    chapter: 'HR', title: 'Employee records',
-    body: 'Six employees, from the Managing Director to the engineers, each with designation, department and joining date.',
-    target: '[data-t="list"]', placement: 'bottom', setup: () => nav('/erp/list/employee'),
-  },
-  attendance: {
-    chapter: 'HR', title: 'Attendance and leave',
-    body: '78 attendance days marked: <b>75 present</b>, 2 on approved leave, 1 absent, a 96.2% attendance rate. Leave is applied for and approved in the system.',
-    target: '[data-t="att-tiles"]', placement: 'bottom', setup: () => nav('/erp/report/attendance'),
-  },
-  payroll: {
-    chapter: 'HR', title: 'October payroll in one run',
-    body: 'Six salary slips: gross <b>OMR 8,450.000</b>, deductions OMR 354.900, net paid <b>OMR 8,095.100</b>. The accrual and the bank payment are posted to the books automatically.',
-    target: '[data-t="payroll-summary"]', placement: 'bottom', setup: () => nav('/erp/list/salary-slip'),
-  },
-  project: {
-    chapter: 'Projects', title: 'Projects with tasks and timesheets',
-    body: '<b>Demo Compressor Overhaul</b> for Demo Industries SAOC: 1 of 3 tasks done (33%), 29 engineer hours logged against an estimated cost of OMR 2,500.000.',
-    target: '[data-t="project-tasks"]', placement: 'top', setup: () => nav(F('project', 'PROJ-0001')),
-  },
   accWrap: {
     chapter: 'Wrap-up', title: 'One system, one set of numbers',
-    body: 'Sales, purchases, stock, service, payroll and assets all feed the same ledger. The dashboard figures are the same figures your accountant sees.',
+    body: 'Sales, purchases, imports, stock, service and assets all feed the same ledger. The dashboard figures are the same figures your accountant sees.',
     target: '[data-t="kpis"]', placement: 'bottom', setup: () => nav('/erp/home'),
   },
 
   /* ---------- Full demo extras ---------- */
   fullWelcome: {
-    chapter: 'Welcome', title: 'Infinity ERP: the 15-minute tour',
+    chapter: 'Welcome', title: 'Infinity ERP: the 12-minute tour',
     body: 'Infy Demo Company trades and services compressors, motors, pumps and generators in Oman. In the next few minutes: selling with e-invoicing, fixing an e-invoice error, an import with landed cost, a repair job, and the finance reports.',
     target: '[data-t="kpis"]', placement: 'bottom', setup: () => nav('/erp/home'),
   },
   fullEnd: {
     chapter: 'Wrap-up', title: 'That is Infinity ERP',
-    body: 'One system for selling, buying, stock, service, projects, HR and accounts, with Oman e-invoicing built in. Open the <b>Guided tours</b> button any time to go deeper into one area.',
+    body: 'One system for selling, buying, imports, stock, service and accounts, with Oman e-invoicing built in. Open the <b>Guided tours</b> button any time to go deeper into one area.',
     setup: () => nav('/erp/home'),
   },
 };
@@ -330,13 +310,12 @@ Tour.define('service', { title: 'Service & repair', minutes: 4 }, [
   STEP.svcWelcome, STEP.motorSold, STEP.complaint, STEP.visit, STEP.journey, STEP.repairInv, STEP.claimClosed,
   STEP.freeWarranty, STEP.rewind, STEP.openClaims, STEP.openClaim, STEP.svcEinv,
 ]);
-Tour.define('accounts', { title: 'Accounts, HR & reports', minutes: 6 }, [
-  STEP.accWelcome, STEP.coa, STEP.pl, STEP.plNet, STEP.bs, STEP.gl, STEP.ar, STEP.stock, STEP.assets,
-  STEP.employees, STEP.attendance, STEP.payroll, STEP.project, STEP.accWrap,
+Tour.define('accounts', { title: 'Accounts & reports', minutes: 5 }, [
+  STEP.accWelcome, STEP.coa, STEP.pl, STEP.plNet, STEP.bs, STEP.gl, STEP.ar, STEP.apReport, STEP.stock, STEP.assets, STEP.accWrap,
 ]);
-Tour.define('full', { title: 'Full demo (15 min)', minutes: 15 }, [
+Tour.define('full', { title: 'Full demo', minutes: 12 }, [
   STEP.fullWelcome, STEP.salesWelcome, STEP.invoiceTotals, STEP.einvoice, STEP.homeEinv, STEP.fail29, STEP.fix29,
-  STEP.importInv, STEP.lcvImpact, STEP.complaint, STEP.repairInv, STEP.pl, STEP.bs, STEP.payroll, STEP.fullEnd,
+  STEP.importInv, STEP.lcvImpact, STEP.complaint, STEP.repairInv, STEP.pl, STEP.bs, STEP.fullEnd,
 ]);
 
 Tour.mount();
