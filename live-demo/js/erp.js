@@ -4,27 +4,43 @@
    window.ERP; derived totals are computed here.
    ========================================================== */
 
-const MODULES = [
-  { id: 'selling', label: 'Selling', icon: 'cart', items: ['lead', 'opportunity', 'quotation', 'sales-order', 'delivery-note', 'sales-invoice', 'customer'], reports: ['ar'] },
-  { id: 'buying', label: 'Buying', icon: 'truck', items: ['material-request', 'rfq', 'supplier-quotation', 'purchase-order', 'purchase-receipt', 'purchase-invoice', 'supplier'], reports: ['ap'] },
-  { id: 'stock', label: 'Stock', icon: 'box', items: ['item', 'stock-entry', 'landed-cost-voucher'], reports: ['stock'] },
-  { id: 'accounts', label: 'Accounts', icon: 'coins', items: ['payment-entry', 'journal-entry'], reports: ['coa', 'gl', 'pl', 'bs', 'ar', 'ap'] },
-  { id: 'service', label: 'Service', icon: 'wrench', items: ['warranty-claim', 'maintenance-visit'], reports: [] },
-  { id: 'projects', label: 'Projects', icon: 'briefcase', items: ['project', 'task', 'timesheet'], reports: [] },
-  { id: 'hr', label: 'HR & Payroll', icon: 'users', items: ['employee', 'leave-application', 'salary-slip'], reports: ['attendance'] },
-  { id: 'assets', label: 'Assets', icon: 'building', items: ['asset'], reports: [] },
+
+/* ---------- Workspaces (same list and order as the live Infinity ERP sidebar) ----------
+   Two live entries are left out: the vendor's settings and integrations workspaces. */
+const RAIL = [
+  { id: 'home', label: 'Home', icon: 'home' },
+  { label: 'Accounting', icon: 'document-list', group: [['accounting', 'Accounting', 'document-list'], ['payables', 'Payables', 'document-list'], ['receivables', 'Receivables', 'grid-3'], ['financial-reports', 'Financial Reports', 'grid-3']] },
+  { id: 'buying', label: 'Buying', icon: 'check-list-3' },
+  { id: 'selling', label: 'Selling', icon: 'briefcase' },
+  { id: 'assets', label: 'Assets', icon: 'document-report' },
+  { id: 'stock', label: 'Stock', icon: 'clipboard' },
+  { label: 'HR', icon: 'person', group: [['hr', 'HR', 'person'], ['recruitment', 'Recruitment', 'grid-3'], ['employee-lifecycle', 'Employee Lifecycle', 'person'], ['performance', 'Performance', 'grid-3'], ['shift-attendance', 'Shift & Attendance', 'grid-3'], ['expense-claims', 'Expense Claims', 'grid-3'], ['leaves', 'Leaves', 'grid-3']] },
+  { id: 'manufacturing', label: 'Manufacturing', icon: 'cog' },
+  { id: 'quality', label: 'Quality', icon: 'check-all' },
+  { id: 'projects', label: 'Projects', icon: 'document-list' },
+  { id: 'support', label: 'Support', icon: 'chat-bubble' },
+  { id: 'users', label: 'Users', icon: 'person' },
+  { id: 'website', label: 'Website', icon: 'laptop' },
+  { label: 'Payroll', icon: 'document-list', group: [['payroll', 'Payroll', 'document-list'], ['salary-payout', 'Salary Payout', 'document-list'], ['tax-benefits', 'Tax & Benefits', 'document-list']] },
+  { id: 'crm', label: 'CRM', icon: 'briefcase' },
+  { id: 'tools', label: 'Tools', icon: 'cog' },
+  { id: 'integrations', label: 'Integrations', icon: 'grid-3' },
+  { id: 'welcome-workspace', label: 'Welcome Workspace', icon: 'cog' },
+  { id: 'build', label: 'Build', icon: 'cog' },
 ];
-const MOD = Object.fromEntries(MODULES.map((m) => [m.id, m]));
+const WS_LABEL = {};
+RAIL.forEach((r) => { if (r.id) WS_LABEL[r.id] = r.label; (r.group || []).forEach(([id, l]) => { WS_LABEL[id] = l; }); });
 const REPORTS = {
-  coa: { label: 'Chart of Accounts', icon: 'tree', module: 'accounts' },
-  gl: { label: 'General Ledger', icon: 'book', module: 'accounts' },
-  pl: { label: 'Profit and Loss', icon: 'chart', module: 'accounts' },
-  bs: { label: 'Balance Sheet', icon: 'scale', module: 'accounts' },
-  ar: { label: 'Accounts Receivable', icon: 'inbox', module: 'accounts' },
-  ap: { label: 'Accounts Payable', icon: 'send', module: 'accounts' },
+  coa: { label: 'Chart of Accounts', icon: 'tree', module: 'accounting' },
+  gl: { label: 'General Ledger', icon: 'book', module: 'accounting' },
+  pl: { label: 'Profit and Loss Statement', icon: 'chart', module: 'accounting' },
+  bs: { label: 'Balance Sheet', icon: 'scale', module: 'accounting' },
+  ar: { label: 'Accounts Receivable', icon: 'inbox', module: 'accounting' },
+  ap: { label: 'Accounts Payable', icon: 'send', module: 'accounting' },
   stock: { label: 'Stock Balance', icon: 'box', module: 'stock' },
-  attendance: { label: 'Attendance', icon: 'calendar', module: 'hr' },
+  attendance: { label: 'Monthly Attendance Sheet', icon: 'calendar', module: 'shift-attendance' },
 };
+const wsHref = (id) => (id === 'home' ? '#/erp/home' : `#/erp/ws/${id}`);
 
 /* ---------- Ledger helpers ---------- */
 const GL = Object.fromEntries(D.gl_by_account.map((g) => [g.account_number, g]));
@@ -76,128 +92,177 @@ function cell(row, [f, , type], slug) {
 }
 const isNum = (type) => ['money', 'omr', 'n1'].includes(type);
 
-/* ---------- Shell (sidebar) ---------- */
-function erpSidebar(r) {
+/* ---------- Shell (icon rail) ---------- */
+function currentWs(r) {
   const [, view, a] = r.parts;
-  const curMod = view === 'ws' ? a : view === 'list' || view === 'form' ? DOCTYPES[a]?.module : view === 'report' ? REPORTS[a]?.module : null;
-  const curSlug = view === 'list' || view === 'form' ? a : null;
-  const curRep = view === 'report' ? a : null;
+  if (!view || view === 'home') return 'home';
+  if (view === 'ws') return a;
+  if (view === 'list' || view === 'form') return DOCTYPES[a]?.module;
+  if (view === 'report') return REPORTS[a]?.module;
+  return null;
+}
+function erpSidebar(r) {
+  const cur = currentWs(r);
+  const chev = '<svg class="rail-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>';
   return `
-  <div class="sb-brand"><span class="mark">${LOGO}</span><div><b>Infinity ERP</b><small>Business suite</small></div></div>
-  <nav class="sb-nav" data-t="sidebar">
-    <a class="sb-item ${view === 'home' || !view ? 'on' : ''}" href="#/erp/home">${icon('home')}<span>Home</span></a>
-    <div class="sb-sec">Modules</div>
-    ${MODULES.map((m) => `
-      <div class="sb-group ${curMod === m.id ? 'open' : ''}" data-mod="${m.id}">
-        <a class="sb-item ${curMod === m.id && view === 'ws' ? 'on' : ''}" href="#/erp/ws/${m.id}">${icon(m.icon)}<span>${m.label}</span>${icon('right', 'chev')}</a>
-        <div class="sb-sub">
-          ${m.items.map((s) => `<a href="#/erp/list/${s}" class="${curSlug === s ? 'on' : ''}">${DOCTYPES[s].label}</a>`).join('')}
-          ${m.reports.map((k) => `<a href="#/erp/report/${k}" class="${curRep === k ? 'on' : ''}">${REPORTS[k].label}</a>`).join('')}
-        </div>
-      </div>`).join('')}
-  </nav>
-  <div class="sb-foot">
-    <a href="#/hub/dashboard">${icon('send')}<span>e-Invoice Hub</span></a>
-    <a href="index.html">${icon('left')}<span>Demo home</span></a>
-  </div>`;
+  <div class="rail-logo"><a href="#/erp/home" title="Infinity ERP"><img src="img/infinity-logo.png" alt="Infinity ERP"></a></div>
+  <div class="rail-nav" data-t="sidebar"><ul class="rail-list">
+    ${RAIL.map((it) => {
+      if (!it.group) return `<li class="rail-li ${cur === it.id ? 'active' : ''}"><a class="rail-a" href="${wsHref(it.id)}" title="${esc(it.label)}">${lmd(it.icon)}<span class="rail-label">${esc(it.label)}</span></a></li>`;
+      const has = it.group.some(([id]) => id === cur);
+      return `<li class="rail-li group ${has ? 'open has-active' : ''}"><a class="rail-a" href="javascript:void(0)" data-rail-group title="${esc(it.label)}">${lmd(it.icon)}<span class="rail-label">${esc(it.label)}</span>${chev}</a>
+        <ul class="rail-box">${it.group.map(([id, l, ic]) => `<li><a class="rail-sub ${cur === id ? 'active' : ''}" href="${wsHref(id)}">${lmd(ic)}<span>${esc(l)}</span></a></li>`).join('')}</ul></li>`;
+    }).join('')}
+  </ul></div>`;
 }
 
-/* ---------- Home dashboard ---------- */
+/* ---------- Charts ---------- */
 function salesChart() {
   const months = D.sales_by_month.map((s) => s.m);
   const sales = D.sales_by_month.map((s) => s.v);
   const purch = months.map((m) => (D.purchase_by_month.find((p) => p.m === m) || {}).v || 0);
-  const W = 640, H = 260, pl = 64, pb = 34, pt = 24, max = 60000;
+  const W = 900, H = 300, pl = 64, pb = 34, pt = 22, max = 60000;
   const y = (v) => pt + (H - pt - pb) * (1 - v / max);
   const gw = (W - pl - 20) / months.length;
-  const bw = Math.min(70, gw / 3.2);
+  const bw = Math.min(80, gw / 3.6);
   let g = '';
-  for (let t = 0; t <= max; t += 15000) g += `<line x1="${pl}" x2="${W - 10}" y1="${y(t)}" y2="${y(t)}" stroke="#E3E8EF"/><text x="${pl - 10}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="#8693A4">${t ? t / 1000 + 'k' : '0'}</text>`;
+  for (let t = 0; t <= max; t += 15000) g += `<line x1="${pl}" x2="${W - 10}" y1="${y(t)}" y2="${y(t)}" stroke="#EDEDED"/><text x="${pl - 10}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="#525252">${t ? num(t).replace(/\.\d+$/, '') : '0'}</text>`;
   months.forEach((m, i) => {
     const cx = pl + gw * i + gw / 2;
-    const bar = (v, x, c, cls) => `<rect class="${cls}" x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="5" fill="${c}"><title>${num(v)}</title></rect>
-      <text x="${x + bw / 2}" y="${y(v) - 7}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#22303F">${num(v).replace(/\.\d+$/, '')}</text>`;
-    g += bar(sales[i], cx - bw - 4, '#136D9C', 'b-s') + bar(purch[i], cx + 4, '#14A39A', 'b-p');
-    g += `<text x="${cx}" y="${H - 10}" text-anchor="middle" font-size="12" font-weight="600" fill="#3A4757">${MONTHS[+m.slice(5) - 1]} ${m.slice(0, 4)}</text>`;
+    const bar = (v, x, c) => `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" fill="${c}"><title>${num(v)}</title></rect>
+      <text x="${x + bw / 2}" y="${y(v) - 7}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#082f32">${num(v).replace(/\.\d+$/, '')}</text>`;
+    g += bar(sales[i], cx - bw - 3, '#0f626a') + bar(purch[i], cx + 3, '#4db6ac');
+    g += `<text x="${cx}" y="${H - 10}" text-anchor="middle" font-size="11.5" fill="#525252">${MONTHS[+m.slice(5) - 1]} ${m.slice(0, 4)}</text>`;
   });
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly sales and purchases">${g}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly sales and purchases" font-family="Outfit, sans-serif">${g}</svg>`;
 }
 
+/* Shortcut card (Quick Access) and link-card helpers, as on live workspaces */
+function shortcutOf(key) {
+  if (key.startsWith('report:')) { const k = key.slice(7); return `<a class="shortcut" href="#/erp/report/${k}"><b>${REPORTS[k].label}</b>${icon('arrowur', 'arr')}</a>`; }
+  const t = DOCTYPES[key];
+  const open = { 'sales-invoice': ['Unpaid', 'Partly Paid'], 'purchase-invoice': ['Unpaid'], 'sales-order': ['To Deliver and Bill'], 'purchase-order': ['To Receive', 'To Receive and Bill'], 'warranty-claim': ['Open'], lead: ['Open'], opportunity: ['Open'] }[key];
+  const n = open ? t.rows.filter((r) => open.includes(statusOf(key, r))).length : 0;
+  const badge = open && n ? `<span class="count warn">${n} ${open[0] === 'To Deliver and Bill' ? 'To Deliver' : open[0].replace('To Receive and Bill', 'To Receive')}</span>` : `<span class="count">${t.rows.length}</span>`;
+  return `<a class="shortcut" href="#/erp/list/${key}"><b>${t.one}</b>${icon('arrowur', 'arr')}${badge}</a>`;
+}
+function linkItem(key) {
+  if (key.startsWith('report:')) { const k = key.slice(7); return `<a class="link-item" href="#/erp/report/${k}">${REPORTS[k].label}${icon('right')}</a>`; }
+  return `<a class="link-item" href="#/erp/list/${key}">${DOCTYPES[key].one}<span class="cnt">${DOCTYPES[key].rows.length}</span>${icon('right')}</a>`;
+}
+function shortcutsHtml(keys, title = 'Quick Access') {
+  return `<div class="ws-section" data-t="ws-tiles"><div class="ws-h">${title}</div><div class="shortcuts">${keys.map(shortcutOf).join('')}</div></div>`;
+}
+function linkCardsHtml(cards) {
+  return `<div class="ws-section"><div class="ws-h">Reports &amp; Masters</div><div class="linkcards">${cards.map(([t, keys]) => `<div class="card linkcard"><h4>${t}</h4>${keys.map(linkItem).join('')}</div>`).join('')}</div></div>`;
+}
+function pageTitle(title, actions = '', side = false) {
+  return `<div class="page-h">${side ? `<span class="ph-side">${icon('sidebar')}</span>` : ''}<h1>${esc(title)}</h1>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`;
+}
+
+/* ---------- Home ---------- */
 function erpHome() {
   const tiles = [
-    ['Sales (net)', FIN.sales, 'chart', '#/erp/list/sales-invoice', 'Oct + Nov 2026, before VAT'],
-    ['Purchases', FIN.purchases, 'cart', '#/erp/list/purchase-invoice', 'Oct + Nov 2026, in OMR'],
-    ['Receivables', FIN.receivable, 'inbox', '#/erp/report/ar', 'Owed by customers'],
-    ['Payables', FIN.payable, 'send', '#/erp/report/ap', 'Owed to suppliers'],
-    ['Stock value', FIN.stock, 'box', '#/erp/report/stock', 'All warehouses'],
-    ['Cash & bank', FIN.cash, 'bank', '#/erp/report/bs', 'Petty cash + bank'],
+    ['Sales (net)', FIN.sales, 'chart', '#/erp/list/sales-invoice', 'Oct + Nov 2026, before VAT', ''],
+    ['Purchases', FIN.purchases, 'cart', '#/erp/list/purchase-invoice', 'Oct + Nov 2026, in OMR', 'c3'],
+    ['Receivables', FIN.receivable, 'inbox', '#/erp/report/ar', 'Owed by customers', 'c1'],
+    ['Payables', FIN.payable, 'send', '#/erp/report/ap', 'Owed to suppliers', 'c2'],
+    ['Stock Value', FIN.stock, 'box', '#/erp/report/stock', 'All warehouses', 'c5'],
+    ['Cash & Bank', FIN.cash, 'bank', '#/erp/report/bs', 'Petty cash + bank', 'c4'],
   ];
-  const hubOk = window.HUB.filter((h) => !h.error_code).length;
-  const hubBad = window.HUB.length - hubOk;
+  const inv = D.sales_invoices;
+  const failed = inv.filter((s) => EINV_ERR[s.name]);
+  const sent = inv.filter((s) => ['Delivered', 'Accepted'].includes(s.custom_einvoice_status)).length;
   const byCust = {};
-  D.sales_invoices.filter((s) => !s.is_return).forEach((s) => { byCust[s.customer] = (byCust[s.customer] || 0) + s.grand_total; });
+  inv.filter((s) => !s.is_return).forEach((s) => { byCust[s.customer] = (byCust[s.customer] || 0) + s.grand_total; });
   const top = Object.entries(byCust).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const recent = [...D.sales_invoices].sort((a, b) => b.posting_date.localeCompare(a.posting_date) || b.name.localeCompare(a.name)).slice(0, 7);
-  return `
-  ${crumbs([['Home']])}
-  <div class="page-h"><h1>Good afternoon</h1><span class="sub">Infy Demo Company · overview to ${fdate(AS_OF)}</span>
-    <div class="actions"><span class="demo-note">${icon('info')}Figures from the demo company</span></div></div>
-  <div class="grid g6" data-t="kpis">
-    ${tiles.map(([l, v, ic, href, foot]) => `<a class="card kpi accent" href="${href}"><div class="lbl">${icon(ic)}${l}</div><div class="val"><small>OMR</small>${num(v)}</div><div class="foot">${foot}</div></a>`).join('')}
+  return `${pageTitle('Home')}
+  <div class="grid g3" data-t="kpis">
+    ${tiles.map(([l, v, ic, href, foot, c]) => `<a class="card kpi ${c}" href="${href}"><span class="kpi-ic">${icon(ic)}</span><div class="val"><small>OMR</small>${num(v)}</div><div class="lbl">${l}</div><div class="foot">${foot}</div></a>`).join('')}
   </div>
   <div class="grid g-2-1">
-    <div class="card" data-t="sales-chart"><div class="card-h"><h3>Sales vs purchases by month</h3><span class="sub">OMR, net of VAT</span>
-      <div class="right legend"><span><i style="background:#136D9C"></i>Sales</span><span><i style="background:#14A39A"></i>Purchases</span></div></div>
-      <div class="card-b chart">${salesChart()}</div></div>
-    <div class="card" data-t="home-einv"><div class="card-h"><h3>E-invoicing</h3><span class="right">${pill('Live', 'ok')}</span></div>
+    <div class="card" data-t="sales-chart"><div class="card-h"><h3>Sales Vs Purchases</h3><span class="sub">OMR, net of VAT</span></div>
+      <div class="card-b chart">${salesChart()}<div class="legend" style="margin:6px 0 0 50px"><span><i style="background:#0f626a"></i>Sales</span><span><i style="background:#4db6ac"></i>Purchases</span></div></div></div>
+    <div class="card" data-t="home-einv"><div class="card-h"><h3>E-Invoicing</h3><span class="right">${pill('Live', 'ok')}</span></div>
       <div class="card-b">
         <div class="grid g2" style="gap:12px">
-          <div><div class="muted small">Delivered</div><div style="font-size:28px;font-weight:800;color:var(--ok)">${hubOk}</div></div>
-          <div><div class="muted small">Needs attention</div><div style="font-size:28px;font-weight:800;color:var(--bad)">${hubBad}</div></div>
+          <div><div class="muted small">Delivered</div><div style="font-size:30px;font-weight:700;color:var(--green)">${sent}</div></div>
+          <div><div class="muted small">Failed</div><div style="font-size:30px;font-weight:700;color:var(--red)">${failed.length}</div></div>
         </div>
-        <div class="progress" style="margin:14px 0 6px;height:9px;background:var(--bad-50)"><i style="width:${(hubOk / window.HUB.length) * 100}%;background:var(--ok)"></i></div>
-        <div class="small muted">${pct((hubOk / window.HUB.length) * 100)} of ${window.HUB.length} documents delivered to buyers through the Infinity e-Invoice Hub.</div>
-        <div style="margin-top:16px;display:grid;gap:8px">
-          ${window.HUB.filter((h) => h.error_code).map((h) => `<a class="banner bad" href="#/hub/doc/${h.erp_doc_id}" style="padding:9px 12px">${icon('alert')}<span><b>${h.erp_doc_id}</b><br><span class="small">${h.error_code === 'MANDATORY_FIELD' ? 'Customer address missing' : 'Buyer VAT number invalid'}</span></span></a>`).join('')}
+        <div class="progress" style="margin:14px 0 6px;height:8px;background:var(--red-bg)"><i style="width:${(sent / (sent + failed.length)) * 100}%;background:var(--green)"></i></div>
+        <div class="small muted">E-invoice status recorded on ${sent + failed.length} sales invoices, credit and debit notes.</div>
+        <div style="margin-top:14px;display:grid;gap:8px">
+          ${failed.map((s) => `<a class="banner bad" href="${formHref('sales-invoice', s.name)}" style="padding:9px 12px;text-decoration:none">${icon('alert')}<span><b>${s.name}</b><br><span class="small">${EINV_HELP[EINV_ERR[s.name].code].title}</span></span></a>`).join('')}
         </div>
-        <a class="btn btn-ghost" style="margin-top:14px;width:100%" href="#/hub/dashboard">${icon('send')}Open e-Invoice Hub</a>
       </div></div>
   </div>
   <div class="grid g2">
-    <div class="card"><div class="card-h"><h3>Top customers by billing</h3><span class="sub">Invoices + debit notes, incl. VAT</span></div>
-      <div class="card-b bar-list">${top.map(([c, v]) => `<div class="row"><div><div class="name">${docLink(c)}</div><div class="bar"><i style="width:${(v / top[0][1]) * 100}%"></i></div></div><div class="num" style="font-weight:700">${omr(v)}</div></div>`).join('')}</div></div>
-    <div class="card"><div class="card-h"><h3>Latest sales invoices</h3><a class="right small" style="color:var(--brand-700);font-weight:600" href="#/erp/list/sales-invoice">View all</a></div>
-      <table class="tbl"><tbody>${recent.map((s) => `<tr class="click" data-href="${formHref('sales-invoice', s.name)}"><td class="link">${s.name}</td><td>${esc(s.customer)}</td><td class="num">${num(s.grand_total)}</td><td>${pill(s.status)}</td></tr>`).join('')}</tbody></table></div>
-  </div>`;
+    <div class="card"><div class="card-h"><h3>Top Customers By Billing</h3><span class="sub">Incl. VAT</span></div>
+      <div class="card-b bar-list">${top.map(([c, v]) => `<div class="row"><div><div class="name">${docLink(c)}</div><div class="bar"><i style="width:${(v / top[0][1]) * 100}%"></i></div></div><div class="num" style="font-weight:600">${omr(v)}</div></div>`).join('')}</div></div>
+    <div class="card"><div class="card-h"><h3>Latest Sales Invoices</h3><a class="right small" style="color:var(--primary);font-weight:500" href="#/erp/list/sales-invoice">View all</a></div>
+      <div class="tbl-pad"><table class="tbl"><tbody>${[...inv].sort((a, b) => b.posting_date.localeCompare(a.posting_date) || b.name.localeCompare(a.name)).slice(0, 7).map((s) => `<tr class="click" data-href="${formHref('sales-invoice', s.name)}"><td class="link">${esc(s.customer)}</td><td>${pill(s.status, statusTone(s.status))}</td><td class="num">${num(s.grand_total)}</td><td class="muted">${s.name}</td></tr>`).join('')}</tbody></table></div></div>
+  </div>
+  ${shortcutsHtml(['item', 'customer', 'supplier', 'sales-invoice'], 'Your Shortcuts')}
+  ${linkCardsHtml([['Accounting', ['report:coa', 'payment-entry', 'journal-entry']], ['Stock', ['item', 'stock-entry', 'report:stock']], ['CRM', ['lead', 'opportunity', 'customer']]])}`;
 }
 
 /* ---------- Workspaces ---------- */
-const WS_FLOW = {
-  selling: { title: 'Lead to cash', steps: [['lead', 'Capture the enquiry'], ['opportunity', 'Qualify the deal'], ['quotation', 'Send the price'], ['sales-order', 'Confirm the order'], ['delivery-note', 'Ship the goods'], ['sales-invoice', 'Bill + e-invoice'], ['payment-entry', 'Collect payment']] },
-  buying: { title: 'Procure to pay', steps: [['material-request', 'Stores ask for stock'], ['rfq', 'Invite suppliers'], ['supplier-quotation', 'Compare offers'], ['purchase-order', 'Order the best offer'], ['purchase-receipt', 'Receive the goods'], ['purchase-invoice', 'Book the bill'], ['payment-entry', 'Pay the supplier']] },
-  stock: { title: 'Stock and landed cost', steps: [['purchase-receipt', 'Goods come in'], ['landed-cost-voucher', 'Add freight, duty, clearing'], ['stock-entry', 'Move or issue stock'], ['delivery-note', 'Goods go out']] },
-  accounts: { title: 'Record to report', steps: [['sales-invoice', 'Sales post automatically'], ['purchase-invoice', 'Purchases post automatically'], ['payment-entry', 'Receipts and payments'], ['journal-entry', 'Adjustments and accruals']] },
-  service: { title: 'Complaint to repair invoice', steps: [['sales-invoice', 'Motor sold'], ['warranty-claim', 'Customer complaint'], ['maintenance-visit', 'Engineer visit'], ['timesheet', 'Labour hours'], ['sales-invoice', 'Repair invoice']] },
-  projects: { title: 'Plan, track and bill', steps: [['project', 'Set up the job'], ['task', 'Break into tasks'], ['timesheet', 'Log hours'], ['sales-invoice', 'Bill the customer']] },
-  hr: { title: 'Hire to pay', steps: [['employee', 'Employee records'], ['leave-application', 'Leave and attendance'], ['salary-slip', 'Monthly payroll'], ['journal-entry', 'Payroll posted to accounts']] },
-  assets: { title: 'Buy, use, depreciate', steps: [['purchase-invoice', 'Asset purchased'], ['asset', 'Asset register'], ['journal-entry', 'Monthly depreciation']] },
+const WS = {
+  accounting: { flow: ['Record to report', [['sales-invoice', 'Sales post automatically'], ['purchase-invoice', 'Purchases post automatically'], ['payment-entry', 'Receipts and payments'], ['journal-entry', 'Adjustments and accruals']]],
+    quick: ['sales-invoice', 'purchase-invoice', 'payment-entry', 'journal-entry', 'report:coa', 'report:gl', 'report:pl', 'report:bs'],
+    cards: [['Accounting Masters', ['report:coa', 'customer', 'supplier']], ['Payables', ['purchase-invoice', 'payment-entry', 'report:ap']], ['Receivables', ['sales-invoice', 'payment-entry', 'report:ar']]] },
+  payables: { quick: ['purchase-invoice', 'payment-entry', 'supplier', 'report:ap'], cards: [['Payables', ['purchase-invoice', 'payment-entry']], ['Reports', ['report:ap', 'report:gl']], ['Masters', ['supplier']]] },
+  receivables: { quick: ['sales-invoice', 'payment-entry', 'customer', 'report:ar'], cards: [['Receivables', ['sales-invoice', 'payment-entry']], ['Reports', ['report:ar', 'report:gl']], ['Masters', ['customer']]] },
+  'financial-reports': { quick: ['report:pl', 'report:bs', 'report:gl', 'report:coa'], cards: [['Financial Statements', ['report:pl', 'report:bs']], ['Ledgers', ['report:gl', 'report:coa', 'journal-entry']], ['Ageing', ['report:ar', 'report:ap']]] },
+  buying: { flow: ['Procure to pay', [['material-request', 'Stores ask for stock'], ['rfq', 'Invite suppliers'], ['supplier-quotation', 'Compare offers'], ['purchase-order', 'Order the best offer'], ['purchase-receipt', 'Receive the goods'], ['purchase-invoice', 'Book the bill'], ['payment-entry', 'Pay the supplier']]],
+    quick: ['material-request', 'rfq', 'supplier-quotation', 'purchase-order', 'purchase-receipt', 'purchase-invoice', 'supplier', 'item'],
+    cards: [['Buying', ['material-request', 'purchase-order', 'purchase-invoice']], ['Supplier', ['supplier', 'supplier-quotation', 'rfq']], ['Imports', ['purchase-receipt', 'landed-cost-voucher', 'report:ap']]] },
+  selling: { flow: ['Lead to cash', [['lead', 'Capture the enquiry'], ['opportunity', 'Qualify the deal'], ['quotation', 'Send the price'], ['sales-order', 'Confirm the order'], ['delivery-note', 'Ship the goods'], ['sales-invoice', 'Bill + e-invoice'], ['payment-entry', 'Collect payment']]],
+    quick: ['item', 'quotation', 'sales-order', 'delivery-note', 'sales-invoice', 'customer'],
+    cards: [['Selling', ['customer', 'quotation', 'sales-order']], ['Fulfilment And Billing', ['delivery-note', 'sales-invoice', 'report:ar']], ['Items And Pricing', ['item']]] },
+  crm: { flow: ['Enquiry to customer', [['lead', 'Capture the enquiry'], ['opportunity', 'Qualify the deal'], ['quotation', 'Send the price'], ['customer', 'Win the customer']]],
+    quick: ['lead', 'opportunity', 'quotation', 'customer'], cards: [['Sales Pipeline', ['lead', 'opportunity']], ['Customers', ['customer', 'quotation']]] },
+  stock: { flow: ['Stock and landed cost', [['purchase-receipt', 'Goods come in'], ['landed-cost-voucher', 'Add freight, duty, clearing'], ['stock-entry', 'Move or issue stock'], ['delivery-note', 'Goods go out']]],
+    quick: ['item', 'purchase-receipt', 'delivery-note', 'stock-entry', 'landed-cost-voucher', 'report:stock'],
+    cards: [['Items', ['item', 'report:stock']], ['Stock Transactions', ['purchase-receipt', 'delivery-note', 'stock-entry']], ['Landed Cost', ['landed-cost-voucher']]] },
+  assets: { flow: ['Buy, use, depreciate', [['purchase-invoice', 'Asset purchased'], ['asset', 'Asset register'], ['journal-entry', 'Monthly depreciation']]],
+    quick: ['asset', 'journal-entry'], cards: [['Assets', ['asset']], ['Accounting', ['journal-entry', 'report:bs']]] },
+  hr: { flow: ['Hire to pay', [['employee', 'Employee records'], ['leave-application', 'Leave and attendance'], ['salary-slip', 'Monthly payroll'], ['journal-entry', 'Payroll posted to accounts']]],
+    quick: ['employee', 'leave-application', 'report:attendance', 'salary-slip'], cards: [['Employee', ['employee']], ['Attendance And Leave', ['leave-application', 'report:attendance']], ['Payroll', ['salary-slip']]] },
+  leaves: { quick: ['leave-application', 'employee'], cards: [['Leaves', ['leave-application']], ['Reports', ['report:attendance']]] },
+  'shift-attendance': { quick: ['report:attendance', 'employee', 'leave-application'], cards: [['Attendance', ['report:attendance', 'leave-application']]] },
+  payroll: { quick: ['salary-slip', 'employee', 'journal-entry'], cards: [['Payroll', ['salary-slip']], ['Accounting', ['journal-entry']]] },
+  'salary-payout': { quick: ['salary-slip', 'journal-entry'], cards: [['Salary Payout', ['salary-slip', 'journal-entry']]] },
+  projects: { flow: ['Plan, track and bill', [['project', 'Set up the job'], ['task', 'Break into tasks'], ['timesheet', 'Log hours'], ['sales-invoice', 'Bill the customer']]],
+    quick: ['project', 'task', 'timesheet'], cards: [['Projects', ['project', 'task']], ['Time Tracking', ['timesheet']]] },
+  support: { flow: ['Complaint to repair invoice', [['sales-invoice', 'Motor sold'], ['warranty-claim', 'Customer complaint'], ['maintenance-visit', 'Engineer visit'], ['timesheet', 'Labour hours'], ['sales-invoice', 'Repair invoice']]],
+    quick: ['warranty-claim', 'maintenance-visit', 'timesheet', 'sales-invoice'], cards: [['Warranty', ['warranty-claim']], ['Maintenance', ['maintenance-visit', 'timesheet']]] },
 };
+function flowCard(title, steps) {
+  return `<div class="card" data-t="ws-flow"><div class="card-h"><h3>${title}</h3><span class="sub">Click a step to open its documents</span></div><div class="card-b"><div class="chain">${steps.map(([s, sub], i) => `${i ? `<span class="arrow">${icon('arrow')}</span>` : ''}<a class="node" href="#/erp/list/${s}"><div class="k">${icon(DOCTYPES[s].icon)}Step ${i + 1}</div><div class="t">${DOCTYPES[s].one}</div><div class="s">${sub}</div></a>`).join('')}</div></div></div>`;
+}
 function workspace(id) {
-  const m = MOD[id];
-  if (!m) return notFound();
-  const f = WS_FLOW[id];
-  const flow = `<div class="chain">${f.steps.map(([s, sub], i) => `${i ? `<span class="arrow">${icon('arrow')}</span>` : ''}<a class="node" href="#/erp/list/${s}"><div class="k">${icon(DOCTYPES[s].icon)}${i + 1}</div><div class="t">${DOCTYPES[s].one}</div><div class="s">${sub}</div></a>`).join('')}</div>`;
-  return `
-  ${crumbs([['Home', '#/erp/home'], [m.label]])}
-  <div class="page-h"><h1>${m.label}</h1><span class="sub">Workspace</span></div>
-  <div class="card ws-flow" data-t="ws-flow"><div class="sec-title">${f.title}</div>${flow}</div>
-  <div><div class="sec-title">Documents</div><div class="ws-tiles" data-t="ws-tiles">
-    ${m.items.map((s) => `<a class="card ws-tile" href="#/erp/list/${s}"><span class="ic">${icon(DOCTYPES[s].icon)}</span><div><b>${DOCTYPES[s].label}</b><span>${DOCTYPES[s].rows.length} records</span></div><span class="cnt">${DOCTYPES[s].rows.length}</span></a>`).join('')}
-  </div></div>
-  ${m.reports.length ? `<div><div class="sec-title">Reports</div><div class="ws-tiles">${m.reports.map((k) => `<a class="card ws-tile" href="#/erp/report/${k}"><span class="ic">${icon(REPORTS[k].icon)}</span><div><b>${REPORTS[k].label}</b><span>Report</span></div></a>`).join('')}</div></div>` : ''}`;
+  const label = WS_LABEL[id];
+  if (!label) return notFound();
+  const w = WS[id];
+  if (!w) {
+    return `${pageTitle(label)}<div class="card"><div class="card-b" style="padding:48px 24px;text-align:center"><div style="font-size:16px;font-weight:600">${esc(label)}</div>
+      <p class="muted" style="margin-top:6px">This workspace is part of Infinity ERP but has no records in the demo company.</p>
+      <a class="btn btn-default" style="margin-top:16px" href="#/erp/home">Back to Home</a></div></div>`;
+  }
+  return `${pageTitle(label)}
+  ${w.flow ? flowCard(w.flow[0], w.flow[1]) : ''}
+  ${shortcutsHtml(w.quick)}
+  ${linkCardsHtml(w.cards)}`;
 }
 
-/* ---------- List view ---------- */
+/* ---------- List view (live layout: filter inputs, rounded header row, title + status first) ---------- */
+const TITLE_FIELDS = ['customer', 'supplier', 'party', 'employee_name', 'asset_name', 'project_name', 'subject', 'item_name', 'lead_name', 'party_name', 'stock_entry_type', 'voucher_type', 'material_request_type'];
+function titleField(slug) {
+  if (slug === 'customer' || slug === 'supplier') return null;
+  const t = DOCTYPES[slug];
+  return TITLE_FIELDS.find((f) => t.rows.some((r) => r[f] != null));
+}
 function listView(slug, query) {
   const t = DOCTYPES[slug];
   if (!t) return notFound();
@@ -205,27 +270,28 @@ function listView(slug, query) {
   t.rows.forEach((r) => { const s = statusOf(slug, r); if (s) statuses[s] = (statuses[s] || 0) + 1; });
   const sel = query.status;
   const rows = sel ? t.rows.filter((r) => statusOf(slug, r) === sel) : t.rows;
-  const m = MOD[t.module];
-  const showName = !['customer', 'supplier'].includes(slug);
-  const totalCol = t.cols.find((c) => c[0] === 'grand_total' || c[0] === 'paid_amount' || c[0] === 'net_pay' || c[0] === 'stock_value');
-  return `
-  ${crumbs([['Home', '#/erp/home'], [m.label, `#/erp/ws/${m.id}`], [t.label]])}
-  <div class="page-h"><h1>${t.label}</h1><span class="sub">${t.rows.length} records</span>
-    <div class="actions"><button class="btn btn-ghost" data-act="mock">${icon('download')}Export</button><button class="btn btn-primary" data-act="mock">${icon('plus')}New ${t.one}</button></div></div>
+  const tf = titleField(slug);
+  const cols = t.cols.filter((c) => c[0] !== tf);
+  const partyLabel = { customer: 'Customer', supplier: 'Supplier', party: 'Party', employee_name: 'Employee' }[tf];
+  const actions = `<button class="btn btn-default" data-act="mock">${icon('list')}List View${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="refresh" aria-label="Refresh">${icon('refresh')}</button><button class="btn btn-icon" data-act="mock" aria-label="Menu">${icon('more')}</button><button class="btn btn-primary" data-act="mock">${icon('plus')}Add ${t.one}</button>`;
+  return `${crumbs([[WS_LABEL[t.module], wsHref(t.module)], [t.one]])}
+  ${pageTitle(t.one, actions, true)}
   ${slug === 'salary-slip' ? payrollSummary() : ''}
-  <div class="card" data-t="list">
-    <div class="toolbar" data-t="list-chips">
-      <a class="chip ${!sel ? 'on' : ''}" href="#/erp/list/${slug}">All <span class="n">${t.rows.length}</span></a>
-      ${Object.entries(statuses).map(([s, n]) => `<a class="chip ${sel === s ? 'on' : ''}" href="#/erp/list/${slug}?status=${encodeURIComponent(s)}">${esc(s)} <span class="n">${n}</span></a>`).join('')}
-      <span class="sep"></span>
-      <span class="chip filter">${icon('filter')}Company: Infy Demo Company</span>
-      <span class="right">${rows.length} shown</span>
+  <div class="layout-card" data-t="list">
+    <div class="toolbar" data-t="list-filters">
+      <span class="fbox">ID</span>
+      ${partyLabel ? `<span class="fbox">${partyLabel}</span>` : ''}
+      <span class="fbox filled">Infy Demo Company</span>
+      ${Object.keys(statuses).length > 1 ? `<select class="fbox" data-status-filter="${slug}" aria-label="Status"><option value="">Status</option>${Object.entries(statuses).map(([s, n]) => `<option value="${esc(s)}" ${sel === s ? 'selected' : ''}>${esc(s)} (${n})</option>`).join('')}</select>` : ''}
+      <span class="right"><span class="btn-group"><button class="btn btn-default" data-act="mock">${icon('filter')}Filter</button>${sel ? `<a class="btn btn-default" href="#/erp/list/${slug}" aria-label="Clear filter">${icon('x')}</a>` : ''}</span>
+        <span class="btn-group"><button class="btn btn-default" data-act="mock" aria-label="Sort">${icon('sort')}</button><button class="btn btn-default" data-act="mock">Last Updated On</button></span></span>
     </div>
-    <div class="tbl-wrap"><table class="tbl" data-t="list-table">
-      <thead><tr>${showName ? `<th>${slug === 'item' ? 'Item code' : 'ID'}</th>` : '<th>Name</th>'}${t.cols.map((c) => `<th class="${isNum(c[2]) ? 'num' : ''}">${c[1]}</th>`).join('')}<th>Status</th></tr></thead>
+    <div class="tbl-wrap tbl-pad"><table class="tbl" data-t="list-table">
+      <thead><tr><th style="width:34px"><span class="chk"></span></th><th>${tf ? (FIELD_LABELS[tf] || 'Title') : 'Name'}</th><th>Status</th>${cols.map((c) => `<th class="${isNum(c[2]) ? 'num' : ''}">${c[1]}</th>`).join('')}${tf ? '<th>ID</th>' : ''}<th class="num">${rows.length} of ${rows.length}</th></tr></thead>
       <tbody>${rows.map((r) => `<tr class="click" data-href="${formHref(slug, r[t.id])}" data-name="${esc(r[t.id])}">
-        <td class="link">${esc(r[t.id])}</td>${t.cols.map((c) => `<td class="${isNum(c[2]) ? 'num' : ''}">${cell(r, c, slug)}</td>`).join('')}<td>${pill(statusOf(slug, r))}</td></tr>`).join('')}</tbody>
-      ${totalCol && totalCol[2] !== 'money' ? `<tfoot><tr><td colspan="${t.cols.indexOf(totalCol) + 1}">Total</td><td class="num">${num(sum(rows, totalCol[0]))}</td><td colspan="${t.cols.length - t.cols.indexOf(totalCol)}"></td></tr></tfoot>` : ''}
+        <td><span class="chk"></span></td><td class="link">${esc(tf ? r[tf] ?? r[t.id] : r[t.id])}</td><td>${pill(statusOf(slug, r))}</td>
+        ${cols.map((c) => `<td class="${isNum(c[2]) ? 'num' : ''}">${cell(r, c, slug)}</td>`).join('')}${tf ? `<td class="muted">${esc(r[t.id])}</td>` : ''}
+        <td class="num"><span class="row-meta">${icon('chat')} 0 · ${icon('heart')}</span></td></tr>`).join('')}</tbody>
     </table></div>
   </div>`;
 }
@@ -385,30 +451,41 @@ function connectionsCard(name, slug) {
   return `<div class="card" data-t="connections"><div class="card-h"><h3>Connections</h3><span class="sub">Linked documents</span></div><div class="card-b">${body}</div></div>`;
 }
 
-/* ---------- E-invoice section on sales invoices ---------- */
+/* ---------- E-Invoice section on sales invoices (what Infinity ERP itself stores) ---------- */
 const TYPE_LABEL = { 380: 'Tax invoice', 381: 'Credit note', 383: 'Debit note' };
+const typeCode = (d) => (d.is_return ? '381' : d.is_debit_note ? '383' : '380');
+const EINV_HELP = {
+  MANDATORY_FIELD: {
+    title: 'Customer address is missing',
+    short: 'The customer has no billing address, and a buyer address is mandatory on an Oman e-invoice (street, city, postal code and country).',
+    fix: (d) => [`Open customer <b>${esc(d.customer)}</b> and add a billing address: street, city, postal code and country (Oman).`],
+  },
+  SCHEMATRON_FATAL: {
+    title: 'Buyer VAT number is not valid',
+    short: 'The buyer VAT number “OM12345” is too short. Oman VAT numbers are 12 characters: OM followed by exactly 10 digits (rule IBR-003-OM).',
+    fix: (d) => [`Open customer <b>${esc(d.customer)}</b> and correct the VAT number to the full 12 characters (OM + 10 digits).`],
+  },
+};
 function einvoiceCard(d) {
-  const h = HUBDOC[d.name];
-  if (!h) return '';
-  const failed = !!h.error_code;
-  const st = failed ? 'Failed' : d.custom_einvoice_status;
-  const reason = failed ? HUB_ERR[h.error_code] : null;
-  return `<div class="card" data-t="einvoice"><div class="card-h"><h3>${icon('send')} E-Invoice</h3><span class="sub">${TYPE_LABEL[h.type_code]} · type code ${h.type_code}</span>
-    <span class="right">${pill(st, failed ? 'bad' : 'ok', 'lg')}</span></div>
+  if (!d.custom_einvoice_status && !EINV_ERR[d.name]) return '';
+  const err = EINV_ERR[d.name];
+  const help = err && EINV_HELP[err.code];
+  const st = err ? 'Failed' : d.custom_einvoice_status;
+  const code = typeCode(d);
+  return `<div class="card" data-t="einvoice"><div class="card-h"><h3>E-Invoice</h3><span class="right">${pill(st, err ? 'bad' : 'ok')}</span></div>
     <div class="card-b">
-    ${failed ? `<div class="banner bad" style="margin-bottom:16px" data-t="einv-fail">${icon('alert')}<span><b>The e-invoice could not be sent.</b> ${reason.short}<br><span class="small">Fix: ${reason.fixShort}</span></span>
-      <span class="act"><a class="btn btn-ghost" href="${formHref('customer', d.customer)}">${icon('edit')}Edit customer</a><button class="btn btn-danger" data-act="amend" data-doc="${d.name}" data-t="amend-btn">${icon('undo')}Cancel &amp; amend</button></span></div>` : ''}
-    <div class="einv">
-      <div><div class="qr">${failed ? `<div style="height:100%;display:grid;place-items:center;color:var(--ink-300);text-align:center;font-size:11px">${icon('xcircle')}<br>No QR yet</div>` : qrSvg(h.uuid)}</div><div class="qr-cap">${failed ? '' : 'QR code (placeholder)'}</div></div>
-      <div class="fields c2">
-        <div class="fld"><div class="lbl">E-invoice status</div><div class="val">${failed ? `<span style="color:var(--bad)">Failed · ${h.error_code}</span>` : `${esc(st)} to buyer`}</div></div>
-        <div class="fld"><div class="lbl">Invoice UUID</div><div class="val">${h.uuid ? `<span class="uuid">${h.uuid}</span>` : '<span class="muted">Assigned on successful validation</span>'}</div></div>
-        <div class="fld"><div class="lbl">Buyer endpoint</div><div class="val mono">${h.participant_to}</div></div>
-        <div class="fld"><div class="lbl">Last update from hub</div><div class="val">${ftime(h.updated_at, true)}</div></div>
-        ${d.custom_cn_reason_code ? `<div class="fld"><div class="lbl">Reason code</div><div class="val">${d.custom_cn_reason_code} · ${CN_REASON[d.custom_cn_reason_code]}</div></div>` : ''}
-        <div class="fld"><div class="lbl">&nbsp;</div><div class="val"><a class="btn btn-ghost" href="#/hub/doc/${d.name}" data-t="open-hub">${icon('ext')}View in e-Invoice Hub</a></div></div>
-      </div>
-    </div></div></div>`;
+    <div class="fields c2" data-t="einv-fields">
+      <div class="fld"><div class="lbl">E-Invoice Status</div><div class="val" ${err ? 'style="color:var(--red)"' : ''}>${esc(st)}</div></div>
+      <div class="fld"><div class="lbl">E-Invoice UUID</div><div class="val">${d.custom_einvoice_uuid ? esc(d.custom_einvoice_uuid) : '<span class="muted">Not assigned</span>'}</div></div>
+      <div class="fld"><div class="lbl">E-Invoice Type</div><div class="val">${code} · ${TYPE_LABEL[code]}</div></div>
+      ${d.custom_cn_reason_code ? `<div class="fld"><div class="lbl">Credit/Debit Note Reason</div><div class="val">${d.custom_cn_reason_code} · ${CN_REASON[d.custom_cn_reason_code]}</div></div>` : ''}
+      ${err ? `<div class="fld wide" data-t="einv-error"><div class="lbl">E-Invoice Error</div><div class="raw">${esc(err.code)}: ${esc(err.message)}</div></div>` : ''}
+    </div>
+    ${err ? `<div class="banner bad" style="margin-top:16px" data-t="einv-fail">${icon('alert')}<div><b>${help.title}.</b> ${help.short}
+        <div class="sec-title" style="font-size:14px;margin:12px 0 6px;color:inherit">How to fix it</div>
+        <ol class="fix-steps">${help.fix(d).map((f) => `<li><span>${f}</span></li>`).join('')}<li><span>Open this invoice, <b>Cancel</b> it, then <b>Amend</b>. Infinity ERP creates the amended copy <b>${d.name}-1</b> with the corrected customer details.</span></li><li><span>Submit the amended invoice. It is e-invoiced again automatically.</span></li></ol>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><a class="btn btn-default" style="text-decoration:none" href="${formHref('customer', d.customer)}">${icon('edit')}Open customer</a><button class="btn btn-primary" data-act="amend" data-doc="${d.name}" data-t="amend-btn">${icon('undo')}Cancel &amp; amend</button></div></div></div>` : ''}
+    </div></div>`;
 }
 
 /* ---------- Type-specific sections ---------- */
@@ -574,7 +651,6 @@ function salarySections(d) {
 function formExtras(slug, d) {
   const cur = d.currency || 'OMR';
   const parts = [];
-  if (['sales-invoice'].includes(slug)) parts.push(einvoiceCard(d));
   if (['purchase-order', 'purchase-receipt', 'purchase-invoice'].includes(slug)) parts.push(currencyCard(d));
   if (['sales-order', 'purchase-order'].includes(slug)) parts.push(progressCard(d));
   parts.push(docChain(slug, d));
@@ -595,45 +671,67 @@ function formExtras(slug, d) {
   return parts.join('');
 }
 
+/* ---------- Form view (live layout: title + status in the page head, pill tabs, one white form card) ---------- */
+const FORM_TABS = { 'sales-invoice': ['Details', 'Payments', 'Address & Contact', 'Terms', 'More Info', 'Connections'], 'purchase-invoice': ['Details', 'Payments', 'Address & Contact', 'Terms', 'More Info', 'Connections'],
+  'sales-order': ['Details', 'Address & Contact', 'Terms', 'More Info', 'Connections'], 'purchase-order': ['Details', 'Address & Contact', 'Terms', 'More Info', 'Connections'],
+  customer: ['Details', 'Address & Contact', 'Accounting', 'Connections'], supplier: ['Details', 'Address & Contact', 'Accounting', 'Connections'] };
 function formView(slug, name) {
   const t = DOCTYPES[slug];
   const d = t && getDoc(slug, name);
   if (!d) return notFound();
-  const m = MOD[t.module];
   const st = statusOf(slug, d);
-  const party = d.customer || d.supplier || d.party || d.employee_name || d.item_name || d.project_name || d.asset_name || d.lead_name || d.party_name || '';
+  const title = d.customer || d.supplier || d.party || d.employee_name || d.asset_name || d.project_name || d.subject || d.item_name || d.lead_name || name;
   const extra = [];
   if (slug === 'maintenance-visit') extra.push(['Engineer', esc(d._engineer)]);
   if (slug === 'timesheet') { extra.push(['Work for', esc(d._activity)]); extra.push(['Rate per hour', d.total_billable_amount ? omr(d.total_billable_amount / d.total_hours) : 'Not billable (warranty)']); }
-  if (slug === 'customer' && d.tax_id && !/^OM\d{10}$/.test(d.tax_id)) {
-    const i = Object.keys(d).indexOf('tax_id');
-  }
   let banner = '';
   if (slug === 'sales-invoice' && d.is_return) banner = `<div class="banner info" data-t="return-banner">${icon('undo')}<span><b>Credit note</b> against ${docLink(d.return_against)} · reason <b>${d.custom_cn_reason_code}</b>: ${CN_REASON[d.custom_cn_reason_code]}. It reduces what ${esc(d.customer)} owes by ${omr(-d.grand_total)} and is e-invoiced as type 381.</span></div>`;
   if (slug === 'sales-invoice' && d.is_debit_note) banner = `<div class="banner warn" data-t="return-banner">${icon('plus')}<span><b>Debit note</b> against ${docLink(d.return_against)} · reason <b>${d.custom_cn_reason_code}</b>: ${CN_REASON[d.custom_cn_reason_code]}. It adds ${omr(d.grand_total)} to the original invoice and is e-invoiced as type 383.</span></div>`;
-  if (slug === 'customer' && d.name === 'Demo Walk-in Customer') banner = `<div class="banner bad">${icon('alert')}<span><b>No billing address.</b> E-invoice ${docLink('ACC-SINV-2026-00028')} was stopped by the hub because the buyer address is mandatory.</span></div>`;
-  if (slug === 'customer' && d.tax_id && !/^OM\d{10}$/.test(d.tax_id)) banner = `<div class="banner bad">${icon('alert')}<span><b>VAT number “${esc(d.tax_id)}” is not valid.</b> Oman VAT numbers are 12 characters: OM followed by 10 digits. E-invoice ${docLink('ACC-SINV-2026-00029')} was rejected for this reason.</span></div>`;
-  const tax = slug === 'customer' && d.tax_id && !/^OM\d{10}$/.test(d.tax_id);
-  const dd = tax ? { ...d } : d;
-  return `
-  ${crumbs([['Home', '#/erp/home'], [m.label, `#/erp/ws/${m.id}`], [t.label, `#/erp/list/${slug}`], [name]])}
-  <div class="page-h" data-t="form-head"><span class="ws-tile" style="padding:0"><span class="ic" style="width:40px;height:40px">${icon(t.icon)}</span></span>
-    <div><div class="small muted" style="font-weight:600">${t.one}</div><h1>${esc(name)}</h1></div>${pill(st, null, 'lg')}
-    ${party && party !== name ? `<span class="sub">· ${esc(party)}</span>` : ''}
-    <div class="actions"><button class="btn btn-ghost" data-act="mock">${icon('file')}Print</button><button class="btn btn-ghost" data-act="mock">${icon('menu')}</button></div></div>
-  <div class="form-tabs"><span class="on">Details</span><span>${slug === 'sales-invoice' ? 'E-Invoice' : 'More info'}</span><span>Connections</span><span>Activity</span></div>
-  ${banner}
-  ${detailsCard(dd, extra).replace(tax ? `<div class="fld "><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}</div></div>` : '@@', `<div class="fld bad"><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}<span class="flag">Invalid format</span></div></div>`)}
-  ${formExtras(slug, d)}
-  ${connectionsCard(name, slug)}`;
+  if (slug === 'customer' && d.name === 'Demo Walk-in Customer') banner = `<div class="banner bad">${icon('alert')}<span><b>No billing address.</b> E-invoice for ${docLink('ACC-SINV-2026-00028')} failed because the buyer address is mandatory.</span></div>`;
+  const badVat = slug === 'customer' && d.tax_id && !/^OM\d{10}$/.test(d.tax_id);
+  if (badVat) banner = `<div class="banner bad">${icon('alert')}<span><b>VAT number “${esc(d.tax_id)}” is not valid.</b> Oman VAT numbers are 12 characters: OM followed by 10 digits. E-invoice for ${docLink('ACC-SINV-2026-00029')} failed for this reason.</span></div>`;
+  let details = detailsCard(d, extra);
+  if (badVat) details = details.replace(`<div class="fld "><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}</div></div>`, `<div class="fld bad"><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}<span class="flag">Invalid format</span></div></div>`);
+  const tabs = FORM_TABS[slug] || ['Details', 'More Info', 'Connections'];
+  const isSubmitted = !['customer', 'supplier', 'item', 'employee', 'lead'].includes(slug);
+  const failed = slug === 'sales-invoice' && EINV_ERR[name];
+  const actions = `${isSubmitted ? `<button class="btn btn-default" data-act="mock">View${icon('down', 'caret')}</button><button class="btn btn-primary" data-act="mock">Create${icon('down', 'caret')}</button>` : ''}
+    <button class="btn btn-default" data-act="mock">Actions${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="mock" aria-label="Print">${icon('printer')}</button>
+    <button class="btn btn-icon" data-act="mock" aria-label="Previous">${icon('left')}</button><button class="btn btn-icon" data-act="mock" aria-label="Next">${icon('right')}</button><button class="btn btn-icon" data-act="mock" aria-label="Menu">${icon('more')}</button>
+    ${isSubmitted ? `<button class="btn btn-outline" ${failed ? `data-act="amend" data-doc="${name}"` : 'data-act="mock"'}>Cancel</button>` : `<button class="btn btn-primary" data-act="mock">Save</button>`}`;
+  return `${crumbs([[WS_LABEL[t.module], wsHref(t.module)], [t.one, `#/erp/list/${slug}`], [name]])}
+  <div class="page-h" data-t="form-head"><span class="ph-side">${icon('sidebar')}</span><h1>${esc(title)}</h1>${pill(st)}
+    <div class="actions">${actions}</div></div>
+  <div class="form-page" data-t="form-page">
+    <div class="form-tabs">${tabs.map((x, i) => `<a href="javascript:void(0)" class="${i ? '' : 'on'}" data-tab="${esc(x)}">${esc(x)}</a>`).join('')}</div>
+    ${banner}
+    ${slug === 'sales-invoice' ? einvoiceCard(d) : ''}
+    ${details}
+    ${formExtras(slug, d)}
+    ${connectionsCard(name, slug)}
+  </div>`;
 }
 
 /* ---------- Reports ---------- */
+const REP_FILTERS = {
+  pl: ['Infy Demo Company', 'Finance Book', 'Fiscal Year', '01-10-2026', '20-11-2026', 'Yearly'],
+  bs: ['Infy Demo Company', 'Finance Book', 'Fiscal Year', '01-10-2026', '20-11-2026', 'Yearly'],
+  gl: ['Infy Demo Company', 'Finance Book', '01-10-2026', '20-11-2026', 'Account', 'Categorize by Voucher'],
+  ar: ['Infy Demo Company', '20-11-2026', 'Due Date', 'Customer', 'Customer Group', '30-60-90-120'],
+  ap: ['Infy Demo Company', '20-11-2026', 'Due Date', 'Supplier', 'Supplier Group', '30-60-90-120'],
+  stock: ['Infy Demo Company', '01-10-2026', '20-11-2026', 'Item Group', 'Item', 'Warehouse'],
+  coa: ['Infy Demo Company'],
+  attendance: ['Infy Demo Company', 'November', '2026', 'Employee', 'Department', 'Summarized View'],
+};
+const FILLED = /Infy|20\d\d|Yearly|Categorize|30-60|Summarized|November|Due Date/;
 function reportHead(k, sub, extra = '') {
   const r = REPORTS[k];
-  return `${crumbs([['Home', '#/erp/home'], [MOD[r.module].label, `#/erp/ws/${r.module}`], [r.label]])}
-  <div class="page-h"><h1>${r.label}</h1><span class="sub">${sub}</span><div class="actions">${extra}<span class="chip filter">${icon('filter')}Infy Demo Company</span><span class="chip filter">${icon('calendar')}1 Oct – 20 Nov 2026</span></div></div>
-  <div class="demo-note">${icon('info')}Figures from the demo company's ledger.</div>`;
+  const actions = `${extra}<button class="btn btn-default" data-act="mock">Actions${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="refresh" aria-label="Refresh">${icon('refresh')}</button><button class="btn btn-icon" data-act="mock" aria-label="Menu">${icon('more')}</button>`;
+  const f = REP_FILTERS[k] || [];
+  return `${crumbs([[WS_LABEL[r.module], wsHref(r.module)], [r.label]])}
+  ${pageTitle(r.label, actions)}
+  <div class="layout-card"><div class="rep-filters">${f.map((x) => `<span class="fbox ${FILLED.test(x) ? 'filled' : ''}">${esc(x)}</span>`).join('')}</div>
+    <div style="padding:10px 16px 0" class="demo-note">${icon('info')}${esc(sub)} · figures from the demo company's ledger</div></div>`;
 }
 
 function coaReport() {
@@ -685,17 +783,21 @@ function plReport() {
   const inc = glGroups('Income', -1), exp = glGroups('Expense');
   const netTone = FIN.net >= 0 ? 'pos' : 'neg';
   return `${reportHead('pl', 'Income statement, 1 Oct – 20 Nov 2026')}
-  <div class="grid g-3-2"><div class="card" data-t="pl-table"><table class="tbl"><thead><tr><th>Account</th><th class="num">Amount (OMR)</th></tr></thead><tbody>
+  <div class="card" data-t="pl-summary"><div class="rep-summary">
+    <div class="s"><div class="l">Total Income This Period</div><div class="v">${omr(FIN.income)}</div></div><span class="op">-</span>
+    <div class="s"><div class="l">Total Expense This Period</div><div class="v">${omr(FIN.expense)}</div></div><span class="op">=</span>
+    <div class="s"><div class="l">${FIN.net >= 0 ? 'Profit' : 'Loss'} This Period</div><div class="v" style="color:${FIN.net >= 0 ? 'var(--green)' : 'var(--red)'}">${omr(FIN.net)}</div></div></div>
+    <div class="grid g4" style="padding:0 16px 16px;gap:12px">
+      <div class="card kpi flat"><div class="lbl">Revenue</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.income)}</div></div>
+      <div class="card kpi flat"><div class="lbl">Cost of goods sold</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.cogs)}</div></div>
+      <div class="card kpi flat ok"><div class="lbl">Gross profit</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.gross)}</div><div class="foot">${pct((FIN.gross / FIN.opIncome) * 100)} margin on sales</div></div>
+      <div class="card kpi flat ${FIN.net >= 0 ? 'ok' : 'bad'}"><div class="lbl">${FIN.net >= 0 ? 'Net profit' : 'Net loss'}</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.net)}</div><div class="foot">After salaries, rent and depreciation</div></div>
+    </div></div>
+  <div class="grid g-3-2"><div class="card" data-t="pl-table"><div class="tbl-wrap"><table class="tbl dt"><thead><tr><th>Account</th><th class="num">1 Oct – 20 Nov 2026</th></tr></thead><tbody>
     <tr class="grand"><td>Income</td><td class="num">${num(FIN.income)}</td></tr>${stmtRows(inc)}
     <tr class="grand"><td>Expenses</td><td class="num">${num(FIN.expense)}</td></tr>${stmtRows(exp)}
-    <tr class="grand" data-t="pl-net"><td>${FIN.net >= 0 ? 'Net profit' : 'Net loss'} for the period</td><td class="num ${netTone}">${num(FIN.net)}</td></tr></tbody></table></div>
-    <div class="stack" data-t="pl-summary">
-      <div class="grid g2"><div class="card kpi"><div class="lbl">Revenue</div><div class="val"><small>OMR</small>${num(FIN.income)}</div></div>
-      <div class="card kpi"><div class="lbl">Cost of goods sold</div><div class="val"><small>OMR</small>${num(FIN.cogs)}</div></div>
-      <div class="card kpi ok"><div class="lbl">Gross profit</div><div class="val"><small>OMR</small>${num(FIN.gross)}</div><div class="foot">${pct((FIN.gross / FIN.opIncome) * 100)} margin on sales</div></div>
-      <div class="card kpi ${FIN.net >= 0 ? 'ok' : 'bad'}"><div class="lbl">${FIN.net >= 0 ? 'Net profit' : 'Net loss'}</div><div class="val"><small>OMR</small>${num(FIN.net)}</div><div class="foot">After salaries, rent and depreciation</div></div></div>
-      <div class="card"><div class="card-b small" style="line-height:1.6;color:var(--ink-700)">Trading is profitable at gross level. In these first two months the overheads (salaries ${omr(sum(D.salary_slips, 'gross_pay'))}, office rent ${omr(glBal('7210'))}, depreciation) are larger than the gross profit, which is typical for a new company building its customer base.</div></div>
-    </div></div>`;
+    <tr class="grand" data-t="pl-net"><td>${FIN.net >= 0 ? 'Net profit' : 'Net loss'} for the period</td><td class="num ${netTone}">${num(FIN.net)}</td></tr></tbody></table></div></div>
+    <div class="card"><div class="card-h"><h3>What the numbers say</h3></div><div class="card-b" style="line-height:1.6;color:var(--subtle)">Trading is profitable at gross level. In these first two months the overheads (salaries ${omr(sum(D.salary_slips, 'gross_pay'))}, office rent ${omr(glBal('7210'))}, depreciation) are larger than the gross profit, which is typical for a new company building its customer base.</div></div></div>`;
 }
 
 function bsReport() {
@@ -797,7 +899,7 @@ function reportView(k) {
   return ({ coa: coaReport, gl: glReport, pl: plReport, bs: bsReport, ar: arReport, ap: apReport, stock: stockReport, attendance: attendanceReport }[k] || notFound)();
 }
 function notFound() {
-  return `<div class="card card-b" style="text-align:center;padding:60px"><h2>Page not found</h2><p class="muted" style="margin-top:8px"><a href="#/erp/home" style="color:var(--brand-700)">Back to home</a></p></div>`;
+  return `${pageTitle('Page not found')}<div class="card card-b" style="text-align:center;padding:60px"><p class="muted"><a href="#/erp/home" style="color:var(--primary)">Back to Home</a></p></div>`;
 }
 
 function erpView(r) {

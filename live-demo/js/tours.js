@@ -11,7 +11,7 @@ const STEP = {
   /* ---------- Sales & e-invoicing ---------- */
   salesWelcome: {
     chapter: 'Welcome', title: 'From first enquiry to cash, with e-invoicing built in',
-    body: 'This tour follows a real sale at <b>Infy Demo Company</b>: two 15 HP air compressors for <b>ABC Trading LLC</b>. We go from enquiry to payment, then watch the same invoice travel through the <b>Infinity e-Invoice Hub</b>. Use <b>Next</b> or the → key.',
+    body: 'This tour follows a real sale at <b>Infy Demo Company</b>: two 15 HP air compressors for <b>ABC Trading LLC</b>. We go from enquiry to payment and see the e-invoice status Infinity ERP records on every invoice. Use <b>Next</b> or the → key.',
     target: '[data-t="ws-flow"]', placement: 'bottom', setup: () => nav('/erp/ws/selling'),
   },
   leads: {
@@ -48,8 +48,8 @@ const STEP = {
   },
   einvoice: {
     chapter: 'E-invoicing', title: 'E-invoice status right on the invoice',
-    body: 'On submit, the invoice is sent automatically to the Infinity e-Invoice Hub. The result comes back here: status <b>Delivered</b>, the official invoice <b>UUID</b> and a QR code for the printed copy.',
-    why: 'Your team keeps working in the ERP. There is no separate portal to log into and nothing to re-type.',
+    body: 'On submit, the invoice is e-invoiced automatically. Infinity ERP stores the result on the invoice itself: e-invoice status <b>Delivered</b>, the official invoice <b>UUID</b> and the document type (380, tax invoice).',
+    why: 'Your team keeps working in the ERP. There is nothing to re-type and the proof of delivery sits on the invoice.',
     target: '[data-t="einvoice"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00003')),
   },
   payment: {
@@ -58,49 +58,45 @@ const STEP = {
     target: '[data-t="connections"]', placement: 'top', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00003')),
     tryIt: { label: 'Open the payment', run: () => nav(F('payment-entry', 'ACC-PAY-2026-00002')) },
   },
-  hubTimeline: {
-    chapter: 'e-Invoice Hub', title: 'The same invoice in the e-Invoice Hub',
-    body: 'Every step is time-stamped: picked up from Infinity ERP, mapped, built, <b>validated against the Oman rules</b>, recorded, sent to the buyer and confirmed. This invoice went from pickup to <b>Delivered</b> in about 10 seconds, carrying seller VAT OM1100099999 and CR 1100099.',
-    why: 'If a customer says “we never got it”, you have proof of when it was delivered.',
-    target: '[data-t="hub-timeline"]', placement: 'left', setup: () => nav('/hub/doc/ACC-SINV-2026-00003'),
-  },
-  hubFields: {
-    chapter: 'e-Invoice Hub', title: 'Exactly what the buyer receives',
-    body: 'Seller <b>Infy Demo Company</b> (VAT OM1100099999, CR 1100099), buyer ABC Trading LLC (VAT OM1000000101), every line with its HS code, and the totals. All of it comes straight from the ERP invoice.',
-    target: '[data-t="hub-fields"]', placement: 'right', setup: () => nav('/hub/doc/ACC-SINV-2026-00003'),
-  },
   creditNote: {
     chapter: 'Corrections', title: 'Credit and debit notes go through the same channel',
     body: 'One generator was returned, so credit note ACC-SINV-2026-00025 reverses <b>OMR 7,087.500</b> against invoice ACC-SINV-2026-00004 (reason QTY) and is e-invoiced as type <b>381</b>. A price increase is a debit note (type <b>383</b>). Click <b>Show the debit note</b>.',
     target: '[data-t="return-banner"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00025')),
     tryIt: { label: 'Show the debit note', run: () => nav(F('sales-invoice', 'ACC-SINV-2026-00027')) },
   },
-  hubKpis: {
-    chapter: 'e-Invoice Hub', title: 'One screen shows how e-invoicing is going',
-    body: '<b>26</b> documents received from Infinity ERP: <b>24 delivered</b>, <b>2 need attention</b>, none stuck in progress.',
-    why: 'You only look at exceptions. Everything else simply happens.',
-    target: '[data-t="hub-kpis"]', placement: 'bottom', setup: () => nav('/hub/dashboard'),
+  homeEinv: {
+    chapter: 'E-invoicing', title: 'E-invoicing at a glance',
+    body: 'The home page counts the e-invoice status of every invoice, credit note and debit note: <b>24 delivered</b> and <b>2 failed</b>. Each failure links straight to its invoice.',
+    why: 'You only look at the exceptions. Everything else simply happens.',
+    target: '[data-t="home-einv"]', placement: 'left', setup: () => nav('/erp/home'),
   },
   fail28: {
     chapter: 'Exceptions', title: 'Failure 1: the customer has no address',
-    body: 'Invoice ACC-SINV-2026-00028 for <b>Demo Walk-in Customer</b> was stopped because the customer has no address, and a buyer address is mandatory on an Oman e-invoice. The hub explains the problem in plain language and lists the fix.',
-    target: '[data-t="hub-error"]', placement: 'right', setup: () => nav('/hub/doc/ACC-SINV-2026-00028'),
+    body: 'Invoice ACC-SINV-2026-00028 for <b>Demo Walk-in Customer</b> shows e-invoice status <b>Failed</b>. Infinity ERP keeps the error on the invoice and explains it in plain language: a buyer address is mandatory on an Oman e-invoice.',
+    target: '[data-t="einv-error"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00028')),
   },
   fix28: {
-    chapter: 'Exceptions', title: 'The fix is made in Infinity ERP',
-    body: 'Open the customer, add the billing address (street, city, postal code, country), then <b>cancel and amend</b> the invoice. The hub picks up the amended copy by itself. Click <b>Fix</b> to see the address form.',
+    chapter: 'Exceptions', title: 'Fix the customer first',
+    body: 'Open the customer and add the billing address (street, city, postal code, country). The readiness check shows exactly what is missing. Click <b>Add address</b> to see the form.',
     target: '[data-t="cust-einv"]', placement: 'bottom', setup: () => nav(F('customer', 'Demo Walk-in Customer')),
+    tryIt: { label: 'Add address', run: () => document.querySelector('[data-act="fix-cust"]').click() },
   },
   fail29: {
     chapter: 'Exceptions', title: 'Failure 2: an invalid VAT number',
-    body: 'Invoice ACC-SINV-2026-00029 for <b>Sample Retail Co LLC</b> was rejected by validation rule <b>IBR-003-OM</b>: the buyer VAT number “OM12345” is too short. Oman VAT numbers are OM followed by exactly 10 digits.',
+    body: 'Invoice ACC-SINV-2026-00029 for <b>Sample Retail Co LLC</b> failed validation rule <b>IBR-003-OM</b>: the buyer VAT number “OM12345” is too short. Oman VAT numbers are OM followed by exactly 10 digits.',
     why: 'The mistake is caught before the invoice reaches the customer or the tax authority, not weeks later.',
-    target: '[data-t="hub-error"]', placement: 'right', setup: () => nav('/hub/doc/ACC-SINV-2026-00029'),
+    target: '[data-t="einv-error"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00029')),
+  },
+  fix29cust: {
+    chapter: 'Exceptions', title: 'Correct the VAT number on the customer',
+    body: 'The customer record flags the VAT number as invalid. Enter the full 12-character number from the customer’s VAT certificate. Click <b>Fix VAT number</b> to see it.',
+    target: '[data-t="cust-einv"]', placement: 'bottom', setup: () => nav(F('customer', 'Sample Retail Co LLC')),
+    tryIt: { label: 'Fix VAT number', run: () => document.querySelector('[data-act="fix-cust"]').click() },
   },
   fix29: {
-    chapter: 'Exceptions', title: 'Correct the customer, then cancel and amend',
-    body: 'After the VAT number on Sample Retail Co LLC is corrected, the invoice is cancelled and amended as ACC-SINV-2026-00029-1. Click <b>Cancel &amp; amend</b> to see what happens next.',
-    target: '[data-t="einvoice"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00029')),
+    chapter: 'Exceptions', title: 'Then cancel and amend the invoice',
+    body: 'With the customer corrected, the invoice is cancelled and amended as ACC-SINV-2026-00029-1, which is e-invoiced again automatically. Click <b>Cancel &amp; amend</b> to see what happens.',
+    target: '[data-t="einv-fail"]', placement: 'top', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00029')),
     tryIt: { label: 'Cancel & amend', run: () => document.querySelector('[data-t="amend-btn"]').click() },
   },
 
@@ -177,7 +173,7 @@ const STEP = {
   svcWelcome: {
     chapter: 'Welcome', title: 'After-sales service and repairs',
     body: 'Follow a motor from sale to complaint, engineer visit, repair invoice and closed claim. Every step is linked, so anyone can see the full history.',
-    target: '[data-t="ws-flow"]', placement: 'bottom', setup: () => nav('/erp/ws/service'),
+    target: '[data-t="ws-flow"]', placement: 'bottom', setup: () => nav('/erp/ws/support'),
   },
   motorSold: {
     chapter: 'Service', title: 'The motor is sold',
@@ -230,10 +226,10 @@ const STEP = {
     body: 'SER-WRN-2026-00005: motor vibration at high speed, <b>engineer visit planned for 22 Nov</b>. No resolution yet, so the claim stays on the open list until the job is done.',
     target: '[data-t="resolution"]', placement: 'bottom', setup: () => nav(F('warranty-claim', 'SER-WRN-2026-00005')),
   },
-  svcHub: {
-    chapter: 'Service', title: 'Repair invoices are e-invoiced as well',
-    body: 'The repair invoice ACC-SINV-2026-00014 went through the e-Invoice Hub like any other sale and was <b>delivered</b> to Sample Construction Co LLC.',
-    target: '[data-t="hub-timeline"]', placement: 'left', setup: () => nav('/hub/doc/ACC-SINV-2026-00014'),
+  svcEinv: {
+    chapter: 'Service', title: 'Repair invoices are e-invoiced too',
+    body: 'The repair invoice ACC-SINV-2026-00014 was e-invoiced like any other sale. Its status is <b>Delivered</b> and its UUID is stored on the invoice.',
+    target: '[data-t="einvoice"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'ACC-SINV-2026-00014')),
   },
 
   /* ---------- Accounts, HR & reports ---------- */
@@ -250,7 +246,7 @@ const STEP = {
   pl: {
     chapter: 'Reports', title: 'Profit and loss',
     body: 'Revenue <b>OMR 37,496.160</b>, cost of goods sold <b>OMR 27,818.693</b>, so gross profit is <b>OMR 9,656.307</b>, a 25.8% margin. All of it comes from posted documents, with no spreadsheets.',
-    target: '[data-t="pl-summary"]', placement: 'left', setup: () => nav('/erp/report/pl'),
+    target: '[data-t="pl-summary"]', placement: 'bottom', setup: () => nav('/erp/report/pl'),
   },
   plNet: {
     chapter: 'Reports', title: 'The bottom line',
@@ -317,14 +313,14 @@ const STEP = {
   },
   fullEnd: {
     chapter: 'Wrap-up', title: 'That is Infinity ERP',
-    body: 'One system for selling, buying, stock, service, projects, HR and accounts, with Oman e-invoicing built in through the Infinity e-Invoice Hub. Open the <b>Guided tours</b> button any time to go deeper into one area.',
+    body: 'One system for selling, buying, stock, service, projects, HR and accounts, with Oman e-invoicing built in. Open the <b>Guided tours</b> button any time to go deeper into one area.',
     setup: () => nav('/erp/home'),
   },
 };
 
 Tour.define('sales', { title: 'Sales & e-invoicing', minutes: 6 }, [
   STEP.salesWelcome, STEP.opportunity, STEP.quotation, STEP.salesOrder, STEP.deliveryNote, STEP.invoiceTotals, STEP.einvoice,
-  STEP.payment, STEP.hubTimeline, STEP.creditNote, STEP.hubKpis, STEP.fail28, STEP.fix28, STEP.fail29, STEP.fix29,
+  STEP.payment, STEP.creditNote, STEP.homeEinv, STEP.fail28, STEP.fix28, STEP.fail29, STEP.fix29cust, STEP.fix29,
 ]);
 Tour.define('purchase', { title: 'Purchase & import', minutes: 6 }, [
   STEP.buyWelcome, STEP.mr, STEP.rfq, STEP.po, STEP.pr, STEP.pinv, STEP.importPo, STEP.importInv, STEP.importFx,
@@ -332,14 +328,14 @@ Tour.define('purchase', { title: 'Purchase & import', minutes: 6 }, [
 ]);
 Tour.define('service', { title: 'Service & repair', minutes: 4 }, [
   STEP.svcWelcome, STEP.motorSold, STEP.complaint, STEP.visit, STEP.journey, STEP.repairInv, STEP.claimClosed,
-  STEP.freeWarranty, STEP.rewind, STEP.openClaims, STEP.openClaim, STEP.svcHub,
+  STEP.freeWarranty, STEP.rewind, STEP.openClaims, STEP.openClaim, STEP.svcEinv,
 ]);
 Tour.define('accounts', { title: 'Accounts, HR & reports', minutes: 6 }, [
   STEP.accWelcome, STEP.coa, STEP.pl, STEP.plNet, STEP.bs, STEP.gl, STEP.ar, STEP.stock, STEP.assets,
   STEP.employees, STEP.attendance, STEP.payroll, STEP.project, STEP.accWrap,
 ]);
 Tour.define('full', { title: 'Full demo (15 min)', minutes: 15 }, [
-  STEP.fullWelcome, STEP.salesWelcome, STEP.einvoice, STEP.hubTimeline, STEP.hubKpis, STEP.fail29, STEP.fix29,
+  STEP.fullWelcome, STEP.salesWelcome, STEP.invoiceTotals, STEP.einvoice, STEP.homeEinv, STEP.fail29, STEP.fix29,
   STEP.importInv, STEP.lcvImpact, STEP.complaint, STEP.repairInv, STEP.pl, STEP.bs, STEP.payroll, STEP.fullEnd,
 ]);
 

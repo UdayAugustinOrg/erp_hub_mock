@@ -3,7 +3,7 @@
    - number/date formatting (OMR 3 decimals, USD 2 decimals)
    - doctype registry over window.ERP data
    - document link graph (derived from matching parties/amounts)
-   - hash router and the two app shells (ERP desk, e-Invoice Hub)
+   - hash router
    ========================================================== */
 
 const AS_OF = '2026-11-20';
@@ -30,7 +30,7 @@ function fdate(d) {
   const [y, m, dd] = d.slice(0, 10).split('-');
   return `${+dd} ${MONTHS[+m - 1]} ${y}`;
 }
-/* Hub timestamps are UTC; the console shows Muscat time (UTC+4) */
+/* Timestamps are UTC; shown in Muscat time (UTC+4) */
 function ftime(iso, withDate = false) {
   if (!iso) return '—';
   const t = new Date(new Date(iso).getTime() + 4 * 3600 * 1000);
@@ -45,15 +45,17 @@ const sum = (arr, f) => arr.reduce((a, x) => a + ((typeof f === 'function' ? f(x
 /* ---------- Status colours ---------- */
 const TONE = {
   ok: ['Paid', 'Completed', 'Delivered', 'Accepted', 'Closed', 'Active', 'Present', 'Approved', 'Fully Completed', 'Ordered', 'Live', 'Converted'],
-  warn: ['Unpaid', 'Partly Paid', 'To Bill', 'To Deliver and Bill', 'To Receive', 'To Receive and Bill', 'Partially Billed', 'Partly Billed',
-    'Partially Received', 'Open', 'Working', 'Replied', 'Quotation', 'Opportunity', 'On Leave', 'In progress', 'Partially Depreciated'],
-  bad: ['Overdue', 'Failed', 'Cancelled', 'Absent', 'Needs attention', 'Rejected'],
-  info: ['Return', 'Credit Note', 'Debit Note Issued', 'Submitted', 'Draft'],
+  warn: ['Unpaid', 'To Bill', 'To Deliver and Bill', 'To Receive', 'To Receive and Bill', 'Open', 'Replied', 'Quotation', 'Opportunity', 'Partially Received'],
+  yellow: ['Partly Paid', 'Partially Billed', 'Partly Billed', 'Working', 'On Leave', 'Partially Depreciated', 'In progress'],
+  bad: ['Overdue', 'Failed', 'Cancelled', 'Absent', 'Rejected', 'Draft'],
+  info: ['Submitted'],
+  mute: ['Return', 'Credit Note', 'Debit Note Issued', 'Not sent'],
 };
 function toneOf(s) {
   for (const [t, list] of Object.entries(TONE)) if (list.includes(s)) return t;
   return 'mute';
 }
+const statusTone = toneOf;
 const pill = (s, tone, cls = '') => s ? `<span class="pill ${tone || toneOf(s)} ${cls}">${esc(s)}</span>` : '';
 
 /* ---------- Data index ---------- */
@@ -65,17 +67,17 @@ const DOCTYPES = {
     cols: [['supplier_group', 'Group'], ['country', 'Country'], ['tax_id', 'VAT number'], ['default_currency', 'Currency']] },
   item: { src: 'items', id: 'item_code', label: 'Items', one: 'Item', module: 'stock', icon: 'box',
     cols: [['item_name', 'Item name'], ['item_group', 'Item group'], ['is_stock_item', 'Stock item', (v) => (v ? 'Yes' : 'No')], ['stock_uom', 'UOM'], ['customs_tariff_number', 'HS code']], status: (r) => r.item_group },
-  lead: { src: 'leads', label: 'Leads', one: 'Lead', module: 'selling', icon: 'user',
+  lead: { src: 'leads', label: 'Leads', one: 'Lead', module: 'crm', icon: 'user',
     cols: [['lead_name', 'Contact'], ['company_name', 'Organisation'], ['source', 'Source']] },
-  opportunity: { src: 'opportunities', label: 'Opportunities', one: 'Opportunity', module: 'selling', icon: 'star',
+  opportunity: { src: 'opportunities', label: 'Opportunities', one: 'Opportunity', module: 'crm', icon: 'star',
     cols: [['party_name', 'Party', 'party'], ['sales_stage', 'Sales stage'], ['opportunity_amount', 'Amount', 'money']] },
   quotation: { src: 'quotations', label: 'Quotations', one: 'Quotation', module: 'selling', icon: 'file',
     cols: [['party_name', 'Party', 'party'], ['transaction_date', 'Date', 'date'], ['grand_total', 'Grand total', 'money']] },
   'sales-order': { src: 'sales_orders', label: 'Sales Orders', one: 'Sales Order', module: 'selling', icon: 'clip',
     cols: [['customer', 'Customer'], ['transaction_date', 'Date', 'date'], ['delivery_date', 'Delivery by', 'date'], ['per_delivered', '% Delivered', 'pct'], ['per_billed', '% Billed', 'pct'], ['grand_total', 'Grand total', 'money']] },
-  'delivery-note': { src: 'delivery_notes', label: 'Delivery Notes', one: 'Delivery Note', module: 'selling', icon: 'truck',
+  'delivery-note': { src: 'delivery_notes', label: 'Delivery Notes', one: 'Delivery Note', module: 'stock', icon: 'truck',
     cols: [['customer', 'Customer'], ['posting_date', 'Date', 'date'], ['grand_total', 'Grand total', 'money']] },
-  'sales-invoice': { src: 'sales_invoices', label: 'Sales Invoices', one: 'Sales Invoice', module: 'selling', icon: 'receipt',
+  'sales-invoice': { src: 'sales_invoices', label: 'Sales Invoices', one: 'Sales Invoice', module: 'accounting', icon: 'receipt',
     cols: [['customer', 'Customer'], ['posting_date', 'Date', 'date'], ['due_date', 'Due', 'date'], ['grand_total', 'Grand total', 'money'], ['outstanding_amount', 'Outstanding', 'money'], ['_einv', 'E-invoice', 'einv']] },
   'material-request': { src: 'material_requests', label: 'Material Requests', one: 'Material Request', module: 'buying', icon: 'clip',
     cols: [['material_request_type', 'Type'], ['transaction_date', 'Date', 'date']] },
@@ -85,21 +87,21 @@ const DOCTYPES = {
     cols: [['supplier', 'Supplier'], ['transaction_date', 'Date', 'date'], ['grand_total', 'Grand total', 'money']] },
   'purchase-order': { src: 'purchase_orders', label: 'Purchase Orders', one: 'Purchase Order', module: 'buying', icon: 'cart',
     cols: [['supplier', 'Supplier'], ['transaction_date', 'Date', 'date'], ['per_received', '% Received', 'pct'], ['per_billed', '% Billed', 'pct'], ['grand_total', 'Grand total', 'money']] },
-  'purchase-receipt': { src: 'purchase_receipts', label: 'Purchase Receipts', one: 'Purchase Receipt', module: 'buying', icon: 'inbox',
+  'purchase-receipt': { src: 'purchase_receipts', label: 'Purchase Receipts', one: 'Purchase Receipt', module: 'stock', icon: 'inbox',
     cols: [['supplier', 'Supplier'], ['posting_date', 'Date', 'date'], ['grand_total', 'Grand total', 'money']] },
-  'purchase-invoice': { src: 'purchase_invoices', label: 'Purchase Invoices', one: 'Purchase Invoice', module: 'buying', icon: 'receipt',
+  'purchase-invoice': { src: 'purchase_invoices', label: 'Purchase Invoices', one: 'Purchase Invoice', module: 'accounting', icon: 'receipt',
     cols: [['supplier', 'Supplier'], ['bill_no', 'Supplier bill no.'], ['posting_date', 'Date', 'date'], ['grand_total', 'Grand total', 'money'], ['base_grand_total', 'In OMR', 'omr'], ['outstanding_amount', 'Outstanding', 'money']] },
   'landed-cost-voucher': { src: 'landed_costs', label: 'Landed Cost Vouchers', one: 'Landed Cost Voucher', module: 'stock', icon: 'anchor', status: () => 'Submitted',
     cols: [['_receipt', 'Purchase receipt'], ['_supplier', 'Supplier'], ['posting_date', 'Date', 'date'], ['total_taxes_and_charges', 'Charges added', 'omr']] },
-  'payment-entry': { src: 'payments', label: 'Payment Entries', one: 'Payment Entry', module: 'accounts', icon: 'wallet', status: () => 'Submitted',
+  'payment-entry': { src: 'payments', label: 'Payment Entries', one: 'Payment Entry', module: 'accounting', icon: 'wallet', status: () => 'Submitted',
     cols: [['payment_type', 'Type'], ['party', 'Party'], ['posting_date', 'Date', 'date'], ['mode_of_payment', 'Mode'], ['paid_amount', 'Amount', 'omr']] },
-  'journal-entry': { src: 'journals', label: 'Journal Entries', one: 'Journal Entry', module: 'accounts', icon: 'book', status: () => 'Submitted',
+  'journal-entry': { src: 'journals', label: 'Journal Entries', one: 'Journal Entry', module: 'accounting', icon: 'book', status: () => 'Submitted',
     cols: [['voucher_type', 'Entry type'], ['posting_date', 'Date', 'date'], ['user_remark', 'Remark'], ['total_debit', 'Total debit', 'omr']] },
   'stock-entry': { src: 'stock_entries', label: 'Stock Entries', one: 'Stock Entry', module: 'stock', icon: 'layers', status: () => 'Submitted',
     cols: [['stock_entry_type', 'Purpose'], ['posting_date', 'Date', 'date'], ['total_outgoing_value', 'Outgoing value', 'omr'], ['total_incoming_value', 'Incoming value', 'omr']] },
-  'warranty-claim': { src: 'warranty_claims', label: 'Warranty Claims', one: 'Warranty Claim', module: 'service', icon: 'shield',
+  'warranty-claim': { src: 'warranty_claims', label: 'Warranty Claims', one: 'Warranty Claim', module: 'support', icon: 'shield',
     cols: [['customer', 'Customer'], ['item_code', 'Item'], ['complaint_date', 'Reported', 'date'], ['complaint', 'Complaint', 'clip']] },
-  'maintenance-visit': { src: 'maintenance_visits', label: 'Maintenance Visits', one: 'Maintenance Visit', module: 'service', icon: 'wrench', status: (r) => r.completion_status,
+  'maintenance-visit': { src: 'maintenance_visits', label: 'Maintenance Visits', one: 'Maintenance Visit', module: 'support', icon: 'wrench', status: (r) => r.completion_status,
     cols: [['customer', 'Customer'], ['mntc_date', 'Visit date', 'date'], ['maintenance_type', 'Type'], ['_engineer', 'Engineer']] },
   project: { src: 'projects', label: 'Projects', one: 'Project', module: 'projects', icon: 'folder',
     cols: [['project_name', 'Project'], ['customer', 'Customer'], ['percent_complete', '% Complete', 'pct'], ['estimated_costing', 'Estimated cost', 'omr']] },
@@ -109,9 +111,9 @@ const DOCTYPES = {
     cols: [['employee_name', 'Employee'], ['_activity', 'Work for'], ['total_hours', 'Hours', 'n1'], ['total_billable_amount', 'Billable', 'omr']] },
   employee: { src: 'employees', label: 'Employees', one: 'Employee', module: 'hr', icon: 'id',
     cols: [['employee_name', 'Name'], ['designation', 'Designation'], ['department', 'Department'], ['date_of_joining', 'Joined', 'date']] },
-  'leave-application': { src: 'leaves', label: 'Leave Applications', one: 'Leave Application', module: 'hr', icon: 'calendar',
+  'leave-application': { src: 'leaves', label: 'Leave Applications', one: 'Leave Application', module: 'leaves', icon: 'calendar',
     cols: [['employee_name', 'Employee'], ['leave_type', 'Leave type'], ['from_date', 'From', 'date'], ['to_date', 'To', 'date']] },
-  'salary-slip': { src: 'salary_slips', label: 'Salary Slips', one: 'Salary Slip', module: 'hr', icon: 'coins',
+  'salary-slip': { src: 'salary_slips', label: 'Salary Slips', one: 'Salary Slip', module: 'payroll', icon: 'coins',
     cols: [['employee_name', 'Employee'], ['start_date', 'Period', 'month'], ['gross_pay', 'Gross pay', 'omr'], ['total_deduction', 'Deductions', 'omr'], ['net_pay', 'Net pay', 'omr']] },
   asset: { src: 'assets', label: 'Assets', one: 'Asset', module: 'assets', icon: 'building',
     cols: [['asset_name', 'Asset'], ['asset_category', 'Category'], ['available_for_use_date', 'In use from', 'date'], ['gross_purchase_amount', 'Gross value', 'omr'], ['_dep', 'Depreciation booked', 'omr'], ['_nbv', 'Net book value', 'omr']] },
@@ -125,7 +127,8 @@ const statusOf = (slug, r) => (DOCTYPES[slug].status ? DOCTYPES[slug].status(r) 
 const ITEM = Object.fromEntries(D.items.map((i) => [i.item_code, i]));
 const CUSTOMER = Object.fromEntries(D.customers.map((c) => [c.name, c]));
 const SUPPLIER = Object.fromEntries(D.suppliers.map((s) => [s.name, s]));
-const HUBDOC = Object.fromEntries(window.HUB.map((h) => [h.erp_doc_id, h]));
+/* E-invoice errors Infinity ERP stores on invoices the e-invoicing service rejected */
+const EINV_ERR = window.EINV_ERRORS || {};
 
 /* Guess the doctype of a document name from its naming series */
 const SERIES = [['ACC-SINV', 'sales-invoice'], ['ACC-PINV', 'purchase-invoice'], ['ACC-PAY', 'payment-entry'], ['ACC-JV', 'journal-entry'],
@@ -263,8 +266,7 @@ D.assets.forEach((a) => {
   a._nbv = r3(a.gross_purchase_amount - a._dep);
 });
 D.sales_invoices.forEach((s) => {
-  const h = HUBDOC[s.name];
-  s._einv = h && h.error_code ? 'Failed' : s.custom_einvoice_status || (h ? 'In progress' : 'Not sent');
+  s._einv = EINV_ERR[s.name] ? 'Failed' : s.custom_einvoice_status || 'Not sent';
 });
 
 /* ---------- Router ---------- */
@@ -293,8 +295,9 @@ const Router = (() => {
 const go = (p) => Router.go(p);
 
 /* ---------- Small UI helpers ---------- */
+/* Breadcrumbs for the top bar: [[label, href], ...]; the last one is the current page */
 function crumbs(list) {
-  return `<div class="crumbs">${list.map((c, i) => (c[1] ? `<a href="${c[1]}">${esc(c[0])}</a>` : `<span>${esc(c[0])}</span>`) + (i < list.length - 1 ? icon('right') : '')).join('')}</div>`;
+  return `<div class="crumbs">${list.map((c, i) => (i ? `<span class="sep">${icon('right')}</span>` : '') + (c[1] && i < list.length - 1 ? `<a href="${c[1]}">${esc(c[0])}</a>` : `<span class="${i === list.length - 1 && i ? 'last' : ''}">${esc(c[0])}</span>`)).join('')}</div>`;
 }
 function modal({ title, body, confirm = 'Confirm', onConfirm }) {
   const el = document.createElement('div');
@@ -323,4 +326,4 @@ function qrSvg(seed) {
   return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges"><g fill="#0A3150">${cells}</g>${finder(0, 0)}${finder(n - 7, 0)}${finder(0, n - 7)}</svg>`;
 }
 
-const LOGO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4z"/></svg>`;
+const LOGO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4z"/></svg>`;
