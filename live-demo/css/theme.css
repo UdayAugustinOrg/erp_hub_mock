@@ -1,0 +1,113 @@
+/* ==========================================================
+   theme.css: shared design tokens and primitives for the
+   Infinity ERP + Infinity e-Invoice Hub demo mock.
+   Brand: deep ocean blue with a teal accent.
+   ========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --brand-950: #05223A;
+  --brand-900: #0A3150;
+  --brand-800: #0C4266;
+  --brand-700: #0F5680;
+  --brand-600: #136D9C;
+  --brand-500: #1C86BA;
+  --brand-200: #BFE0F0;
+  --brand-100: #DDEFF8;
+  --brand-50:  #EEF7FB;
+  --acc-600:   #0E8C84;
+  --acc-500:   #14A39A;
+  --acc-100:   #CFF1ED;
+  --acc-50:    #E6F7F5;
+
+  --ink-900: #14202E;
+  --ink-800: #22303F;
+  --ink-700: #3A4757;
+  --ink-500: #627083;
+  --ink-400: #8693A4;
+  --ink-300: #B5BFCC;
+  --line:    #E3E8EF;
+  --line-2:  #EEF1F5;
+  --paper:   #F5F7FA;
+  --white:   #FFFFFF;
+
+  --ok:      #12804A;  --ok-50:   #E5F5EC;
+  --warn:    #B25E09;  --warn-50: #FDF1DD;
+  --bad:     #C2352B;  --bad-50:  #FCE9E7;
+  --info:    #2759C9;  --info-50: #E8EEFC;
+  --mute:    #5B6678;  --mute-50: #EEF1F5;
+
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(10, 32, 56, .06), 0 1px 3px rgba(10, 32, 56, .04);
+  --shadow:    0 4px 16px rgba(10, 32, 56, .07);
+  --shadow-lg: 0 20px 50px rgba(10, 32, 56, .18);
+
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-padding-top: 80px; }
+body {
+  font-family: var(--font-ui); color: var(--ink-900); background: var(--paper);
+  -webkit-font-smoothing: antialiased; font-size: 13.5px; line-height: 1.45;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+a { color: inherit; text-decoration: none; }
+table { border-collapse: collapse; width: 100%; }
+.num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--ink-500); }
+.small { font-size: 12px; }
+svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: 32px; padding: 0 13px; border-radius: 8px; white-space: nowrap;
+  font-weight: 600; font-size: 13px; transition: background .15s, border-color .15s, box-shadow .15s;
+}
+.btn-primary { background: var(--brand-700); color: var(--white); }
+.btn-primary:hover { background: var(--brand-600); }
+.btn-ghost { background: var(--white); color: var(--ink-800); border: 1px solid var(--line); }
+.btn-ghost:hover { border-color: var(--ink-300); }
+.btn-danger { background: var(--bad); color: var(--white); }
+.btn-acc { background: var(--acc-500); color: var(--white); }
+.btn-acc:hover { background: var(--acc-600); }
+.btn-lg { height: 42px; padding: 0 20px; font-size: 14px; border-radius: 10px; }
+
+/* ---------- Pills ---------- */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; line-height: 18px;
+}
+.pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.ok   { background: var(--ok-50);   color: var(--ok); }
+.pill.warn { background: var(--warn-50); color: var(--warn); }
+.pill.bad  { background: var(--bad-50);  color: var(--bad); }
+.pill.info { background: var(--info-50); color: var(--info); }
+.pill.mute { background: var(--mute-50); color: var(--mute); }
+.pill.lg { font-size: 12.5px; padding: 4px 12px; }
+
+/* ---------- Cards ---------- */
+.card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.card-h { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line-2); }
+.card-h h3 { font-size: 14px; font-weight: 700; color: var(--ink-900); }
+.card-h .sub { font-size: 12px; color: var(--ink-500); }
+.card-h .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.card-b { padding: 16px; }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 700;
+  background: var(--ink-900); color: var(--white); padding: 12px 18px; border-radius: 10px;
+  box-shadow: var(--shadow-lg); font-size: 13px; max-width: min(560px, calc(100vw - 32px));
+  display: flex; gap: 10px; align-items: flex-start; animation: toast-in .2s ease-out;
+}
+.toast svg.i { color: var(--acc-500); margin-top: 1px; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }

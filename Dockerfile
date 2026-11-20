@@ -18,5 +18,6 @@ COPY igc-mock/      /usr/share/nginx/html/igc-mock/
 COPY mec-mock/      /usr/share/nginx/html/mec-mock/
 COPY peniel-mock/   /usr/share/nginx/html/peniel-mock/
 COPY oman-gulf-s-a-mock/ /usr/share/nginx/html/oman-gulf-s-a-mock/
+COPY live-demo/     /usr/share/nginx/html/live-demo/
 
 EXPOSE 80
