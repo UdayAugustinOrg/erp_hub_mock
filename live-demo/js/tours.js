@@ -43,7 +43,7 @@ const STEP = {
   },
   invoiceTotals: {
     chapter: 'Selling', title: 'The tax invoice, built from the delivery',
-    body: 'Sales invoice INFY-SINV-2026-00001 is created from the delivery note with one click: net <b>OMR 7,200.000</b>, VAT 5% <b>OMR 360.000</b>, total <b>OMR 7,560.000</b>. It is already paid, so nothing is outstanding.',
+    body: 'Sales invoice INFY-SINV-2026-00001 is created from the delivery note with one click. Each line carries the item’s tax template, and the default template Oman VAT 5% adds VAT automatically: net <b>OMR 7,200.000</b>, VAT 5% <b>OMR 360.000</b>, total <b>OMR 7,560.000</b>.',
     target: '[data-t="totals"]', placement: 'top', setup: () => nav(F('sales-invoice', 'INFY-SINV-2026-00001')),
   },
   einvoice: {
@@ -154,13 +154,13 @@ const STEP = {
   },
   lcvImpact: {
     chapter: 'Import', title: 'Landed cost: the real cost of each compressor',
-    body: 'The landed cost voucher adds <b>OMR 1,089.500</b> of charges to the stock. Each compressor goes from <b>OMR 2,002.000</b> (USD 5,200 × 0.385) to <b>OMR 2,219.900</b>, 10.9% more.',
+    body: 'The Landed Cost Analysis report, filtered to receipt INFY-PR-2026-00005, shows the effect of the landed cost voucher: the purchase value of <b>OMR 10,010.000</b> plus <b>OMR 1,089.500</b> of charges. Each compressor goes from <b>OMR 2,002.000</b> (USD 5,200 × 0.385) to <b>OMR 2,219.900</b>, 10.9% more.',
     why: 'Margins and selling prices are based on what the goods really cost you, not just the supplier price.',
-    target: '[data-t="lcv-impact"]', placement: 'top', setup: () => nav(F('landed-cost-voucher', 'INFY-LCV-2026-00001')),
+    target: '[data-t="lca-unit"]', placement: 'bottom', setup: () => nav('/erp/report/lca?pr=INFY-PR-2026-00005'),
   },
   stockRow: {
     chapter: 'Import', title: 'Stock value includes the landed cost',
-    body: 'The 8 compressors in Stores are valued at <b>OMR 18,299.500</b>: 3 bought locally at 2,400.000 plus the 5 imported at 2,219.900. Stock value agrees with the ledger.',
+    body: 'The 2 compressors still in Stores are valued at <b>OMR 4,439.800</b>, that is <b>2,219.900 each</b>: the import price plus their share of freight, duty and clearing. Stock value agrees with the ledger.',
     target: '[data-t="stock-cmp15"]', placement: 'right', setup: () => nav('/erp/report/stock'),
   },
   apReport: {
@@ -251,12 +251,12 @@ const STEP = {
   },
   plNet: {
     chapter: 'Reports', title: 'The bottom line',
-    body: `After salaries, rent and depreciation (5200 Indirect Expenses) the first two months show a <b>loss of ${omr(-FIN.net)}</b>. Every line is a numbered account from the chart.`,
+    body: `After salaries, rent and depreciation (5200 Indirect Expenses) the first two months show a <b>${FIN.net >= 0 ? 'net profit' : 'loss'} of ${omr(Math.abs(FIN.net))}</b>: income ${omr(FIN.income)} less expenses ${omr(FIN.expense)}. Every line is a numbered account from the chart.`,
     target: '[data-t="pl-net"]', placement: 'right', setup: () => nav('/erp/report/pl'),
   },
   bs: {
     chapter: 'Reports', title: 'Balance sheet, always in balance',
-    body: `Assets of <b>${omr(FIN.assets)}</b> against liabilities of ${omr(FIN.liabilities)} and equity of ${omr(FIN.equity)} (including OMR 45,000.000 of extra capital, INFY-JV-2026-00027), less the ${omr(-FIN.net)} loss for the period.`,
+    body: `Assets of <b>${omr(FIN.assets)}</b> against liabilities of ${omr(FIN.liabilities)} and equity of ${omr(FIN.equity)} (including OMR 45,000.000 of extra capital, INFY-JV-2026-00027), ${FIN.net >= 0 ? 'plus' : 'less'} the ${omr(Math.abs(FIN.net))} ${FIN.net >= 0 ? 'profit' : 'loss'} for the period.`,
     target: '[data-t="bs-check"]', placement: 'left', setup: () => nav('/erp/report/bs'),
   },
   gl: {
@@ -266,7 +266,7 @@ const STEP = {
   },
   ar: {
     chapter: 'Reports', title: 'Who owes you, and since when',
-    body: `Receivables by customer and due date: <b>${omr(FIN.receivable)}</b> in total, agreeing to ledger 1310 Debtors. Credit notes show as negative amounts against the customer.`,
+    body: `Receivables of <b>${omr(FIN.receivable)}</b>, agreeing to ledger 1310 Debtors, aged by posting date in the ranges set on the ERP (30, 40, 120 days): <b>OMR 28,369.000</b> is 0-30 days, 336.000 is 31-40 and 1,680.000 is 41-120. Each invoice shows its age in days.`,
     why: 'Collections become a 2-minute daily check.',
     target: '[data-t="ar-kpis"]', placement: 'bottom', setup: () => nav('/erp/report/ar'),
   },
@@ -306,15 +306,128 @@ const STEP = {
     target: '[data-t="kpis"]', placement: 'bottom', setup: () => nav('/erp/home'),
   },
 
+  /* ---------- VAT, landed cost & ageing ---------- */
+  vatWelcome: {
+    chapter: 'Welcome', title: 'VAT, landed cost and ageing',
+    body: 'For the finance team: where prices and VAT are set up, how VAT lands on every invoice and reconciles to the ledger, what imports really cost after landed cost, and how old the receivables, payables and stock are.',
+    target: '[data-t="ws-flow"]', placement: 'bottom', setup: () => nav('/erp/ws/accounting'),
+  },
+  itemPrice: {
+    chapter: 'VAT setup', title: 'Where the selling price is set',
+    body: 'Prices live in <b>Item Price</b> records on two price lists: <b>Standard Selling</b> fills the rate on quotations, orders and invoices; <b>Standard Buying</b> fills purchase documents. The 15 HP compressor sells at OMR 3,150.000 and is bought at OMR 2,400.000.',
+    target: '[data-t="item-prices"]', placement: 'bottom', setup: () => nav(F('item', 'DEMO-CMP-15')),
+  },
+  itemTax: {
+    chapter: 'VAT setup', title: 'VAT is tied to the item',
+    body: 'Each item carries two <b>Item Tax Templates</b>: <b>VAT 5% Sales - INFY</b> (posts to 2320 Output VAT 5%) for sales, and <b>VAT 5% Purchase - INFY</b> (1510 Input VAT 5%) for purchases from suppliers in the Purchase VAT tax category.',
+    why: 'Nobody types a VAT rate on an invoice: it follows the item, so it is always right.',
+    target: '[data-t="item-tax"]', placement: 'top', setup: () => nav(F('item', 'DEMO-CMP-15')),
+  },
+  taxTemplates: {
+    chapter: 'VAT setup', title: 'Default VAT templates',
+    body: 'The default sales template <b>Oman VAT 5% - INFY</b> and the default purchase template <b>Oman VAT 5% Input - INFY</b> are added to every new document automatically. Imports use the reverse-charge template.',
+    target: '[data-t="list-table"]', placement: 'bottom', setup: () => nav('/erp/list/taxes-template'),
+  },
+  invoiceVat: {
+    chapter: 'VAT', title: 'VAT calculated on the invoice',
+    body: 'On the invoice each line shows its item tax template, and the totals show the default template and the VAT: <b>OMR 360.000</b> on a net of OMR 7,200.000, posted to 2320 Output VAT 5%.',
+    target: '[data-t="totals"]', placement: 'top', setup: () => nav(F('sales-invoice', 'INFY-SINV-2026-00001')),
+  },
+  vatRecon: {
+    chapter: 'VAT', title: 'VAT Reconciliation: invoices against the ledger',
+    body: 'Every invoice’s output, input and reverse-charge VAT, totalled and compared with the ledgers: output <b>3,399.100</b> (2320), input <b>6,710.080</b> (1510), reverse charge <b>2,147.530</b> (2330). The difference is <b>0.000</b>. Net VAT is <b>−1,163.450</b>, a refund position, because of the input VAT on assets and imports.',
+    target: '[data-t="vat-gl"]', placement: 'bottom', setup: () => nav('/erp/report/vat-recon'),
+  },
+  vatMonth: {
+    chapter: 'VAT', title: 'VAT Summary by Month',
+    body: 'The same figures per month, beside the ledger balances, ready for the monthly VAT return. October and November both reconcile to the GL with no difference.',
+    target: '[data-t="vat-month-table"]', placement: 'bottom', setup: () => nav('/erp/report/vat-month'),
+  },
+  lcaAll: {
+    chapter: 'Landed cost', title: 'Landed Cost Analysis for all receipts',
+    body: 'For every imported receipt line: purchase value, landed cost added, the new value and the unit cost before and after. In total <b>OMR 4,220.030</b> of freight, insurance, duty and clearing was added to stock. Filter by receipt, voucher or item.',
+    target: '[data-t="lca-total"]', placement: 'top', setup: () => nav('/erp/report/lca'),
+  },
+  apAgeing: {
+    chapter: 'Ageing', title: 'Payables ageing',
+    body: `What you owe, ${omr(FIN.payable)} in total, aged by posting date with the same 30 / 40 / 120 ranges: <b>OMR 39,086.100</b> is 0-30 days, 3,780.000 is 31-40 and 178.000 is 41-120. Each bill shows its age in days.`,
+    target: '[data-t="ap-kpis"]', placement: 'bottom', setup: () => nav('/erp/report/ap'),
+  },
+  stockAgeing: {
+    chapter: 'Ageing', title: 'Stock ageing',
+    body: 'How long stock has been on the shelf, item by item, in 0-30 / 31-60 / 61-90 / 90+ day bands, with quantity and value in each band and the average age.',
+    why: 'Slow-moving stock ties up cash. This shows where.',
+    target: '[data-t="stock-ageing-kpis"]', placement: 'bottom', setup: () => nav('/erp/report/stock-ageing'),
+  },
+
+  /* ---------- Manufacturing ---------- */
+  mfgWelcome: {
+    chapter: 'Welcome', title: 'Manufacturing a compressor package',
+    body: 'Infy Demo Company also builds a product: the <b>Demo Compressor Package 15 HP</b>, a compressor and motor mounted on a skid with piping and a service kit. Follow it from the bill of materials to the sale.',
+    target: '[data-t="ws-flow"]', placement: 'bottom', setup: () => nav('/erp/ws/manufacturing'),
+  },
+  bomItems: {
+    chapter: 'BOM', title: 'The bill of materials',
+    body: 'BOM-DEMO-PKG-15-001 lists what goes into one package: the 15 HP compressor, a 15 kW motor, a service kit, a steel skid and a piping set, at their current valuation rates: <b>OMR 3,135.920</b> of materials.',
+    target: '[data-t="bom-items"]', placement: 'top', setup: () => nav(F('bom', 'BOM-DEMO-PKG-15-001')),
+  },
+  bomCost: {
+    chapter: 'BOM', title: 'Product cost, including labour time',
+    body: 'Assembly (6 hours) and the run test (2 hours) at the workstation rate add <b>OMR 96.000</b>, so one package costs <b>OMR 3,231.920</b> to build. It sells at OMR 4,250.000.',
+    why: 'You know the margin on a product before you build it.',
+    target: '[data-t="bom-cost"]', placement: 'top', setup: () => nav(F('bom', 'BOM-DEMO-PKG-15-001')),
+  },
+  workstation: {
+    chapter: 'Setup', title: 'Workstation hour rate',
+    body: 'The <b>Demo Assembly and Test Bay</b> costs <b>OMR 12.000 an hour</b>: labour 9, electricity 2, consumables 0.5 and rent 0.5. Every operation done here is costed at this rate.',
+    target: '[data-t="ws-rate"]', placement: 'bottom', setup: () => nav(F('workstation', 'Demo Assembly and Test Bay')),
+  },
+  routing: {
+    chapter: 'Setup', title: 'Routing: the steps to build it',
+    body: 'The routing sets the sequence: <b>Skid Assembly</b> (360 minutes) then <b>Run Test</b> (120 minutes, load run, leak check, pressure and temperature readings). OMR 96.000 of operating cost per package.',
+    target: '[data-t="routing-ops"]', placement: 'bottom', setup: () => nav(F('routing', 'Demo Compressor Package Routing')),
+  },
+  workOrder: {
+    chapter: 'Production', title: 'Work order: build 2 packages',
+    body: 'Work order INFY-WO-2026-00001 builds 2 packages from the BOM. It tracks material transferred (2 of 2) and quantity manufactured (2 of 2): <b>Completed</b>.',
+    target: '[data-t="wo-progress"]', placement: 'bottom', setup: () => nav(F('work-order', 'INFY-WO-2026-00001')),
+  },
+  materialTransfer: {
+    chapter: 'Production', title: 'Materials move to work in progress',
+    body: 'Stock entry INFY-STE-2026-00004 moves the components for 2 packages from Stores to the Work In Progress warehouse: <b>OMR 6,535.898</b> of stock, at each item’s actual valuation.',
+    target: '[data-t="ste-items"]', placement: 'top', setup: () => nav(F('stock-entry', 'INFY-STE-2026-00004')),
+  },
+  jobCards: {
+    chapter: 'Production', title: 'Job cards on the shop floor',
+    body: 'One job card per operation records the actual time: Skid Assembly 720 minutes and Run Test 240 minutes for the 2 packages. The second work order, INFY-WO-2026-00002, has its materials transferred and its job cards open.',
+    target: '[data-t="wo-ops"]', placement: 'top', setup: () => nav(F('work-order', 'INFY-WO-2026-00001')),
+  },
+  manufacture: {
+    chapter: 'Production', title: 'Finished goods into stock',
+    body: 'The Manufacture entry INFY-STE-2026-00005 consumes the components (OMR 6,535.898) and adds the operating cost (OMR 192.000). The 2 packages enter Finished Goods at <b>OMR 3,363.949 each</b>.',
+    why: 'Product cost is calculated from real material values and real time, not a guess.',
+    target: '[data-t="ste-fg"]', placement: 'top', setup: () => nav(F('stock-entry', 'INFY-STE-2026-00005')),
+  },
+  packageSale: {
+    chapter: 'Sales', title: 'Selling the package',
+    body: 'Both packages are sold at the standard price of OMR 4,250.000 + VAT: INFY-SINV-2026-00036 to Demo Industries SAOC and INFY-SINV-2026-00037 to XYZ Engineering LLC (<b>OMR 4,462.500</b> each).',
+    target: '[data-t="items"]', placement: 'top', setup: () => nav(F('sales-invoice', 'INFY-SINV-2026-00037')),
+  },
+  packageEinv: {
+    chapter: 'Sales', title: 'E-invoiced like every sale',
+    body: 'The package invoice was e-invoiced automatically: status <b>Delivered</b>, with its UUID stored on the invoice.',
+    target: '[data-t="einvoice"]', placement: 'bottom', setup: () => nav(F('sales-invoice', 'INFY-SINV-2026-00037')),
+  },
+
   /* ---------- Full demo extras ---------- */
   fullWelcome: {
     chapter: 'Welcome', title: 'Infinity ERP: the 12-minute tour',
-    body: 'Infy Demo Company trades and services compressors, motors, pumps and generators in Oman. In the next few minutes: selling with e-invoicing, fixing an e-invoice error, an import with landed cost, a repair job, the finance reports and fixed assets.',
+    body: 'Infy Demo Company trades and services compressors, motors, pumps and generators in Oman. In the next few minutes: selling with e-invoicing, fixing an e-invoice error, an import with landed cost, building a product, a repair job, the finance reports and fixed assets.',
     target: '[data-t="kpis"]', placement: 'bottom', setup: () => nav('/erp/home'),
   },
   fullEnd: {
     chapter: 'Wrap-up', title: 'That is Infinity ERP',
-    body: 'One system for selling, buying, imports, stock, service and accounts, with Oman e-invoicing built in. Open the <b>Guided tours</b> button any time to go deeper into one area.',
+    body: 'One system for selling, buying, imports, stock, manufacturing, service and accounts, with Oman e-invoicing built in. Open the <b>Guided tours</b> button any time to go deeper into one area.',
     setup: () => nav('/erp/home'),
   },
 };
@@ -336,8 +449,16 @@ Tour.define('accounts', { title: 'Accounts & reports', minutes: 7 }, [
   STEP.assetCats, STEP.assetSchedule, STEP.cwipBills, STEP.assetCap, STEP.assetRegister, STEP.accWrap,
 ]);
 Tour.define('full', { title: 'Full demo', minutes: 12 }, [
-  STEP.fullWelcome, STEP.salesWelcome, STEP.invoiceTotals, STEP.einvoice, STEP.homeEinv, STEP.fail29, STEP.fix29,
-  STEP.importInv, STEP.lcvImpact, STEP.complaint, STEP.repairInv, STEP.pl, STEP.bs, STEP.assetCap, STEP.fullEnd,
+  STEP.fullWelcome, STEP.salesWelcome, STEP.einvoice, STEP.fail29, STEP.fix29,
+  STEP.importInv, STEP.lcvImpact, STEP.bomCost, STEP.manufacture, STEP.complaint, STEP.repairInv, STEP.pl, STEP.bs, STEP.assetCap, STEP.fullEnd,
+]);
+Tour.define('vat', { title: 'VAT, landed cost & ageing', minutes: 6 }, [
+  STEP.vatWelcome, STEP.itemPrice, STEP.itemTax, STEP.taxTemplates, STEP.invoiceVat, STEP.vatRecon, STEP.vatMonth,
+  STEP.lcaAll, STEP.ar, STEP.apAgeing, STEP.stockAgeing,
+]);
+Tour.define('mfg', { title: 'Manufacturing', minutes: 5 }, [
+  STEP.mfgWelcome, STEP.bomItems, STEP.bomCost, STEP.workstation, STEP.routing, STEP.workOrder, STEP.materialTransfer,
+  STEP.jobCards, STEP.manufacture, STEP.packageSale, STEP.packageEinv,
 ]);
 
 Tour.mount();

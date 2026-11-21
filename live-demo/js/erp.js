@@ -12,14 +12,16 @@ const RAIL = [
     ['#/erp/list/sales-invoice', 'Sales Invoice', 'document-list'], ['#/erp/list/purchase-invoice', 'Purchase Invoice', 'document-list'],
     ['#/erp/list/payment-entry', 'Payment Entry', 'document-list'], ['#/erp/list/journal-entry', 'Journal Entry', 'document-list'],
     ['#/erp/report/coa', 'Chart of Accounts', 'grid-3'], ['#/erp/report/pl', 'Profit and Loss', 'grid-3'], ['#/erp/report/bs', 'Balance Sheet', 'grid-3'],
-    ['#/erp/report/gl', 'General Ledger', 'grid-3'], ['#/erp/report/ar', 'Accounts Receivable', 'grid-3'], ['#/erp/report/ap', 'Accounts Payable', 'grid-3']] },
+    ['#/erp/report/gl', 'General Ledger', 'grid-3'], ['#/erp/report/ar', 'Accounts Receivable', 'grid-3'], ['#/erp/report/ap', 'Accounts Payable', 'grid-3'],
+    ['#/erp/report/vat-recon', 'VAT Reconciliation', 'grid-3'], ['#/erp/report/vat-month', 'VAT Summary by Month', 'grid-3']] },
   { id: 'buying', label: 'Buying', icon: 'check-list-3' },
   { id: 'selling', label: 'Selling', icon: 'briefcase' },
   { id: 'assets', label: 'Assets', icon: 'document-report' },
   { id: 'stock', label: 'Stock', icon: 'clipboard' },
+  { id: 'manufacturing', label: 'Manufacturing', icon: 'cog' },
   { id: 'support', label: 'Support', icon: 'chat-bubble' },
 ];
-const WS_LABEL = { home: 'Home', accounting: 'Accounting', buying: 'Buying', selling: 'Selling', assets: 'Assets', stock: 'Stock', support: 'Support' };
+const WS_LABEL = { home: 'Home', accounting: 'Accounting', buying: 'Buying', selling: 'Selling', assets: 'Assets', stock: 'Stock', manufacturing: 'Manufacturing', support: 'Support' };
 const REPORTS = {
   coa: { label: 'Chart of Accounts', icon: 'tree', module: 'accounting' },
   gl: { label: 'General Ledger', icon: 'book', module: 'accounting' },
@@ -28,6 +30,10 @@ const REPORTS = {
   ar: { label: 'Accounts Receivable', icon: 'inbox', module: 'accounting' },
   ap: { label: 'Accounts Payable', icon: 'send', module: 'accounting' },
   stock: { label: 'Stock Balance', icon: 'box', module: 'stock' },
+  'stock-ageing': { label: 'Stock Ageing', icon: 'clock', module: 'stock' },
+  lca: { label: 'Landed Cost Analysis', icon: 'anchor', module: 'stock' },
+  'vat-recon': { label: 'VAT Reconciliation', icon: 'percent', module: 'accounting' },
+  'vat-month': { label: 'VAT Summary by Month', icon: 'calendar', module: 'accounting' },
 };
 const wsHref = (id) => (id === 'home' ? '#/erp/home' : `#/erp/ws/${id}`);
 
@@ -207,13 +213,20 @@ function erpHome() {
 const WS = {
   accounting: { flow: ['Record to report', [['sales-invoice', 'Sales post automatically'], ['purchase-invoice', 'Purchases post automatically'], ['payment-entry', 'Receipts and payments'], ['journal-entry', 'Adjustments and accruals']]],
     quick: ['sales-invoice', 'purchase-invoice', 'payment-entry', 'journal-entry', 'report:coa', 'report:gl', 'report:pl', 'report:bs'],
-    cards: [['Accounting Masters', ['report:coa', 'customer', 'supplier']], ['Payables', ['purchase-invoice', 'payment-entry', 'report:ap']], ['Receivables', ['sales-invoice', 'payment-entry', 'report:ar']]] },
+    cards: [['Accounting Masters', ['report:coa', 'customer', 'supplier']], ['Payables', ['purchase-invoice', 'payment-entry', 'report:ap']], ['Receivables', ['sales-invoice', 'payment-entry', 'report:ar']],
+      ['VAT', ['report:vat-recon', 'report:vat-month', 'item-tax-template', 'taxes-template']]] },
   buying: { flow: ['Procure to pay', [['material-request', 'Stores ask for stock'], ['rfq', 'Invite suppliers'], ['supplier-quotation', 'Compare offers'], ['purchase-order', 'Order the best offer'], ['purchase-receipt', 'Receive the goods'], ['purchase-invoice', 'Book the bill'], ['payment-entry', 'Pay the supplier']]],
     quick: ['purchase-order', 'purchase-receipt', 'purchase-invoice', 'landed-cost-voucher', 'material-request', 'rfq', 'supplier-quotation', 'supplier'],
     cards: [['Buying', ['material-request', 'purchase-order', 'purchase-invoice']], ['Supplier', ['supplier', 'supplier-quotation', 'rfq']], ['Imports', ['purchase-receipt', 'landed-cost-voucher', 'report:ap']]] },
   selling: { flow: ['Lead to cash', [['lead', 'Capture the enquiry'], ['opportunity', 'Qualify the deal'], ['quotation', 'Send the price'], ['sales-order', 'Confirm the order'], ['delivery-note', 'Ship the goods'], ['sales-invoice', 'Bill + e-invoice'], ['payment-entry', 'Collect payment']]],
     quick: ['sales-invoice', 'quotation', 'sales-order', 'delivery-note', 'lead', 'opportunity', 'customer', 'item'],
-    cards: [['Selling', ['customer', 'quotation', 'sales-order']], ['Fulfilment And Billing', ['delivery-note', 'sales-invoice', 'report:ar']], ['Pipeline', ['lead', 'opportunity']]] },
+    cards: [['Selling', ['customer', 'quotation', 'sales-order']], ['Fulfilment And Billing', ['delivery-note', 'sales-invoice', 'report:ar']], ['Items And Pricing', ['item', 'item-price', 'taxes-template']], ['Pipeline', ['lead', 'opportunity']]] },
+  stock: { flow: ['Stock and landed cost', [['purchase-receipt', 'Goods come in'], ['landed-cost-voucher', 'Add freight, duty, clearing'], ['stock-entry', 'Move or issue stock'], ['delivery-note', 'Goods go out']]],
+    quick: ['item', 'landed-cost-voucher', 'report:lca', 'report:stock', 'report:stock-ageing', 'purchase-receipt', 'delivery-note', 'stock-entry'],
+    cards: [['Items And Pricing', ['item', 'item-price', 'report:stock']], ['Stock Transactions', ['purchase-receipt', 'delivery-note', 'stock-entry']], ['Landed Cost', ['landed-cost-voucher', 'report:lca', 'report:stock-ageing']]] },
+  manufacturing: { flow: ['Plan, build and sell', [['bom', 'Recipe and cost'], ['work-order', 'Plan production'], ['stock-entry', 'Transfer materials'], ['job-card', 'Assemble and test'], ['stock-entry', 'Finished goods in'], ['sales-invoice', 'Sell the package']]],
+    quick: ['bom', 'work-order', 'job-card', 'workstation', 'routing', 'operation', 'stock-entry', 'item'],
+    cards: [['Bill Of Materials', ['bom', 'routing', 'operation']], ['Production', ['work-order', 'job-card', 'stock-entry']], ['Setup', ['workstation', 'item', 'report:stock']]] },
   stock: { flow: ['Stock and landed cost', [['purchase-receipt', 'Goods come in'], ['landed-cost-voucher', 'Add freight, duty, clearing'], ['stock-entry', 'Move or issue stock'], ['delivery-note', 'Goods go out']]],
     quick: ['item', 'landed-cost-voucher', 'purchase-receipt', 'delivery-note', 'stock-entry', 'report:stock'],
     cards: [['Items', ['item', 'report:stock']], ['Stock Transactions', ['purchase-receipt', 'delivery-note', 'stock-entry']], ['Landed Cost', ['landed-cost-voucher']]] },
@@ -276,6 +289,15 @@ function listView(slug, query) {
 
 /* ---------- Form view ---------- */
 const FIELD_LABELS = {
+  production_item: 'Item to manufacture', bom_no: 'BOM', qty: 'Qty to manufacture', produced_qty: 'Manufactured qty', material_transferred_for_manufacturing: 'Material transferred for manufacturing',
+  planned_start_date: 'Planned start date', actual_start_date: 'Actual start date', actual_end_date: 'Actual end date', wip_warehouse: 'Work-in-progress warehouse', fg_warehouse: 'Target warehouse',
+  planned_operating_cost: 'Planned operating cost', actual_operating_cost: 'Actual operating cost', total_operating_cost: 'Total operating cost', workstation_name: 'Workstation name',
+  hour_rate: 'Hour rate', hour_rate_labour: 'Hour rate - labour', hour_rate_electricity: 'Hour rate - electricity', hour_rate_consumable: 'Hour rate - consumables', hour_rate_rent: 'Hour rate - rent',
+  production_capacity: 'Production capacity', description: 'Description', routing_name: 'Routing name', item: 'Item', quantity: 'Quantity', is_active: 'Is active', is_default: 'Is default',
+  with_operations: 'With operations', routing: 'Routing', rm_cost_as_per: 'Rate of materials based on', raw_material_cost: 'Raw material cost', operating_cost: 'Operating cost', total_cost: 'Total cost',
+  operation: 'Operation', workstation: 'Workstation', for_quantity: 'Qty to manufacture', total_completed_qty: 'Total completed qty', total_time_in_mins: 'Total time (mins)', work_order: 'Work order',
+  include_item_in_manufacturing: 'Include item in manufacturing', title: 'Title', disabled: 'Disabled', kind: 'Used on', price_list: 'Price list', price_list_rate: 'Rate', valid_from: 'Valid from',
+  purpose: 'Purpose', fg_completed_qty: 'Finished good qty', total_additional_costs: 'Additional costs',
   location: 'Location', purchase_date: 'Purchase date', purchase_invoice: 'Purchase invoice', purchase_receipt: 'Purchase receipt', is_composite_asset: 'Composite asset (built from CWIP)',
   calculate_depreciation: 'Calculate depreciation', depreciation_booked: 'Depreciation booked', asset: 'Asset', depreciation_method: 'Depreciation method',
   total_number_of_depreciations: 'Total number of depreciations', frequency_of_depreciation: 'Frequency (months)', enable_cwip_accounting: 'Enable CWIP accounting',
@@ -297,10 +319,10 @@ const FIELD_LABELS = {
   grand_total: 'Grand total', base_grand_total: 'Grand total (OMR)', outstanding_amount: 'Outstanding', per_delivered: '% Delivered', per_billed: '% Billed', per_received: '% Received',
   net_total: 'Net total', is_stock_item: 'Maintain stock', standard_rate: 'Standard rate', valuation_rate: 'Valuation rate', value_after_depreciation: 'Value after depreciation',
 };
-const HIDE = ['name', 'items', 'status', 'taxes', 'receipts', 'custom_einvoice_status', 'custom_einvoice_uuid', 'custom_cn_reason_code', 'is_return', 'is_debit_note',
+const HIDE = ['docstatus', 'workstation_name', 'routing_name', 'name', 'items', 'status', 'taxes', 'receipts', 'custom_einvoice_status', 'custom_einvoice_uuid', 'custom_cn_reason_code', 'is_return', 'is_debit_note',
   'return_against', 'net_total', 'total_taxes_and_charges', 'grand_total', 'outstanding_amount', 'per_delivered', 'per_billed', 'per_received', 'complaint', 'resolution_details',
   'base_grand_total', 'conversion_rate', 'currency', 'standard_rate', 'valuation_rate', 'value_after_depreciation'];
-const MONEY_F = ['depreciation_booked', 'total_value', 'opportunity_amount', 'paid_amount', 'total_debit', 'total_outgoing_value', 'total_incoming_value', 'estimated_costing', 'total_billed_amount',
+const MONEY_F = ['hour_rate', 'hour_rate_labour', 'hour_rate_electricity', 'hour_rate_consumable', 'hour_rate_rent', 'raw_material_cost', 'operating_cost', 'total_cost', 'planned_operating_cost', 'actual_operating_cost', 'total_operating_cost', 'price_list_rate', 'total_additional_costs', 'depreciation_booked', 'total_value', 'opportunity_amount', 'paid_amount', 'total_debit', 'total_outgoing_value', 'total_incoming_value', 'estimated_costing', 'total_billed_amount',
   'total_billable_amount', 'gross_pay', 'total_deduction', 'net_pay', 'gross_purchase_amount', 'total_taxes_and_charges'];
 
 function fieldVal(k, v, d) {
@@ -310,7 +332,8 @@ function fieldVal(k, v, d) {
   if (MONEY_F.includes(k)) return omr(v);
   if (k === 'is_stock_item') return v ? 'Yes' : 'No';
   if (k === 'percent_complete') return pct(v);
-  if (['customer', 'supplier', 'party', 'party_name', 'item_code', 'asset', 'asset_category', 'purchase_invoice', 'purchase_receipt', 'target_asset'].includes(k)) return docLink(v);
+  if (['customer', 'supplier', 'party', 'party_name', 'item_code', 'asset', 'asset_category', 'purchase_invoice', 'purchase_receipt', 'target_asset', 'bom_no', 'routing', 'workstation', 'operation', 'work_order', 'production_item', 'item'].includes(k)) return docLink(v);
+  if (['is_active', 'is_default', 'with_operations', 'include_item_in_manufacturing', 'disabled'].includes(k)) return v ? 'Yes' : 'No';
   if (['is_composite_asset', 'calculate_depreciation', 'enable_cwip_accounting'].includes(k)) return v ? 'Yes' : 'No';
   return esc(v);
 }
@@ -321,15 +344,19 @@ function detailsCard(d, extraFields = []) {
     ${fields.map(([l, v, cls]) => `<div class="fld ${cls || ''}"><div class="lbl">${l}</div><div class="val">${v}</div></div>`).join('')}</div></div></div>`;
 }
 
-function itemsCard(d, cur) {
+/* Item Tax Template picked for a line: the item's sales template on selling documents, its purchase template (tax category Purchase VAT) on buying documents */
+const ITEM_TAX = {};
+(TAX.item_tax_assignments || []).forEach((a) => { (ITEM_TAX[a.item_code] = ITEM_TAX[a.item_code] || {})[a.tax_category ? 'purchase' : 'sales'] = a.item_tax_template; });
+const SELLING_DT = ['quotation', 'sales-order', 'delivery-note', 'sales-invoice'];
+function itemsCard(d, cur, slug) {
   const { items, from } = itemsOf(d);
   if (!items) return '';
   const usd = cur === 'USD';
   return `<div class="card" data-t="items"><div class="card-h"><h3>Items</h3><span class="sub">${items.length} line${items.length > 1 ? 's' : ''}${from ? ` · lines as on ${docLink(from)}` : ''}</span></div>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="idx">#</th><th>Item</th><th>HS code</th><th class="num">Qty</th><th>Unit</th><th class="num">Rate (${cur})</th><th class="num">Amount (${cur})</th>${usd ? '<th class="num">Amount (OMR)</th>' : ''}</tr></thead>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="idx">#</th><th>Item</th><th>HS code</th><th class="num">Qty</th><th>Unit</th><th class="num">Rate (${cur})</th><th class="num">Amount (${cur})</th>${usd ? '<th class="num">Amount (OMR)</th>' : ''}<th>Item Tax Template</th></tr></thead>
     <tbody>${items.map((it, i) => `<tr data-item="${it.item_code}"><td class="idx">${i + 1}</td><td><a class="link" href="${formHref('item', it.item_code)}">${it.item_code}</a><div class="small muted">${esc(it.item_name)}</div></td>
       <td class="mono muted">${ITEM[it.item_code]?.customs_tariff_number || '—'}</td><td class="num">${num(it.qty, 2).replace(/\.00$/, '')}</td><td>${it.uom}</td>
-      <td class="num">${num(it.rate, usd ? 2 : 3)}</td><td class="num"><b>${num(it.amount, usd ? 2 : 3)}</b></td>${usd ? `<td class="num">${num(it.amount * USD_RATE)}</td>` : ''}</tr>`).join('')}</tbody></table></div></div>`;
+      <td class="num">${num(it.rate, usd ? 2 : 3)}</td><td class="num"><b>${num(it.amount, usd ? 2 : 3)}</b></td>${usd ? `<td class="num">${num(it.amount * USD_RATE)}</td>` : ''}<td class="small">${(() => { const t = ITEM_TAX[it.item_code]?.[SELLING_DT.includes(slug) ? 'sales' : 'purchase']; return t ? docLink(t) : '<span class="muted">—</span>'; })()}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 const CN_REASON = { QTY: 'Quantity returned or corrected', CAN: 'Invoice cancelled', OTH: 'Other reason', VAL: 'Price / value adjustment' };
@@ -342,6 +369,8 @@ function totalsCard(slug, d, cur) {
   const selling = ['quotation', 'sales-order', 'delivery-note', 'sales-invoice'].includes(slug);
   const rcm = !selling && cur === 'USD';
   const rows = [['Net total', money(net, cur)]];
+  const tpl = selling ? TAX.default_templates?.sales : rcm ? null : TAX.default_templates?.purchase;
+  if (tax && tpl) rows.push([`Taxes and Charges Template`, docLink(tpl)]);
   if (tax) rows.push([`VAT 5% ${selling ? '<span class="small muted">· 2320 Output VAT 5%</span>' : '<span class="small muted">· 1510 Input VAT 5%</span>'}`, money(tax, cur)]);
   else if (!rcm) rows.push(['VAT', '<span class="muted">Not charged</span>']);
   return `<div class="card" data-t="totals"><div class="card-h"><h3>Taxes and totals</h3></div><div class="card-b" style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
@@ -628,11 +657,95 @@ function customerSections(d) {
       <tr class="gt"><td>Outstanding</td><td class="num">${omr(os)}</td></tr></table></div></div></div>`;
 }
 
+/* ---------- Manufacturing screens ---------- */
+const BOM_OF = Object.fromEntries(D.boms.map((b) => [b.name, b]));
+const WO_OF = Object.fromEntries(D.work_orders.map((w) => [w.name, w]));
+const mins = (m) => `${num(m / 60, 2).replace(/\.00$/, '')} h`;
+function bomSections(d) {
+  const ops = d.operations || [];
+  return `<div class="card" data-t="bom-items"><div class="card-h"><h3>Items</h3><span class="sub">Raw materials for ${num(d.quantity, 2).replace(/\.00$/, '')} × ${esc(d.item_name)}, rate as per ${esc(d.rm_cost_as_per)}</span></div>
+    <table class="tbl"><thead><tr><th class="idx">#</th><th>Item</th><th class="num">Qty</th><th>Unit</th><th class="num">Rate (OMR)</th><th class="num">Amount (OMR)</th><th>Source warehouse</th></tr></thead>
+    <tbody>${d.items.map((it, i) => `<tr><td class="idx">${i + 1}</td><td><a class="link" href="${formHref('item', it.item_code)}">${it.item_code}</a><div class="small muted">${esc(it.item_name)}</div></td><td class="num">${it.qty}</td><td>${it.uom}</td><td class="num">${num(it.rate)}</td><td class="num"><b>${num(it.amount)}</b></td><td class="small">${esc(it.source_warehouse)}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="5">Raw material cost</td><td class="num">${num(d.raw_material_cost)}</td><td></td></tr></tfoot></table></div>
+  <div class="card" data-t="bom-ops"><div class="card-h"><h3>Operations</h3><span class="sub">Routing ${docLink(d.routing)}</span></div>
+    <table class="tbl"><thead><tr><th>Operation</th><th>Workstation</th><th class="num">Time</th><th class="num">Hour rate (OMR)</th><th class="num">Operating cost (OMR)</th></tr></thead>
+    <tbody>${ops.map((o) => `<tr><td>${docLink(o.operation)}</td><td>${docLink(o.workstation)}</td><td class="num">${o.time_in_mins} mins (${mins(o.time_in_mins)})</td><td class="num">${num(o.hour_rate)}</td><td class="num"><b>${num(o.operating_cost)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="4">Operating cost</td><td class="num">${num(d.operating_cost)}</td></tr></tfoot></table></div>
+  <div class="card" data-t="bom-cost"><div class="card-h"><h3>Costing</h3><span class="sub">Per ${num(d.quantity, 2).replace(/\.00$/, '')} unit</span></div><div class="card-b" style="display:flex;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px" class="small muted">The BOM cost is the planned cost of one package: materials at their current valuation rate plus the assembly and test time at the workstation hour rate. Actual cost is taken when the work order is completed (see the Manufacture stock entry).</div>
+    <table class="totals"><tr><td>Raw material cost</td><td class="num">${omr(d.raw_material_cost)}</td></tr><tr><td>Operating cost</td><td class="num">${omr(d.operating_cost)}</td></tr><tr class="gt"><td>Total cost</td><td class="num">${omr(d.total_cost)}</td></tr>
+      <tr><td>Standard selling price</td><td class="num">${omr(MFG.items?.find((i) => i.item_code === d.item)?.prices?.['Standard Selling'])}</td></tr></table></div></div>`;
+}
+function workOrderSections(d) {
+  const stes = linkedOf(d.name, 'stock-entry').sort();
+  const jcs = D.job_cards.filter((j) => j.work_order === d.name);
+  const prog = (a, b) => `<div class="progress" style="min-width:90px"><i style="width:${b ? (a / b) * 100 : 0}%"></i></div>`;
+  return `<div class="card" data-t="wo-progress"><div class="card-h"><h3>Production</h3>${pill(d.status)}</div><div class="card-b">
+      <div class="prog-row"><span>Material transferred</span>${prog(d.material_transferred_for_manufacturing, d.qty)}<span class="num">${d.material_transferred_for_manufacturing} / ${d.qty}</span></div>
+      <div class="prog-row"><span>Manufactured</span>${prog(d.produced_qty, d.qty)}<span class="num">${d.produced_qty} / ${d.qty}</span></div>
+      <div class="fields" style="margin-top:16px"><div class="fld"><div class="lbl">Work-in-progress warehouse</div><div class="val">${esc(d.wip_warehouse)}</div></div><div class="fld"><div class="lbl">Finished goods warehouse</div><div class="val">${esc(d.fg_warehouse)}</div></div>
+      <div class="fld"><div class="lbl">Operating cost (planned / actual)</div><div class="val">${num(d.planned_operating_cost)} / ${num(d.actual_operating_cost)}</div></div></div></div></div>
+  <div class="card" data-t="wo-items"><div class="card-h"><h3>Required items</h3></div>
+    <table class="tbl"><thead><tr><th>Item</th><th>Source warehouse</th><th class="num">Required</th><th class="num">Transferred</th><th class="num">Consumed</th></tr></thead>
+    <tbody>${d.required_items.map((r) => `<tr><td><a class="link" href="${formHref('item', r.item_code)}">${r.item_code}</a><div class="small muted">${esc(ITEM[r.item_code]?.item_name || '')}</div></td><td class="small">${esc(r.source_warehouse)}</td><td class="num">${r.required_qty}</td><td class="num">${r.transferred_qty}</td><td class="num">${r.consumed_qty}</td></tr>`).join('')}</tbody></table></div>
+  <div class="card" data-t="wo-ops"><div class="card-h"><h3>Operations and job cards</h3></div>
+    <table class="tbl"><thead><tr><th>Operation</th><th>Workstation</th><th class="num">Time</th><th class="num">Completed qty</th><th>Status</th><th>Job card</th></tr></thead>
+    <tbody>${d.operations.map((o) => { const j = jcs.find((x) => x.operation === o.operation); return `<tr><td>${docLink(o.operation)}</td><td>${docLink(o.workstation)}</td><td class="num">${o.time_in_mins} mins</td><td class="num">${o.completed_qty}</td><td>${pill(o.status)}</td><td>${j ? `${docLink(j.name)} ${pill(j.status)}` : '—'}</td></tr>`; }).join('')}</tbody></table></div>
+  <div class="card" data-t="wo-stes"><div class="card-h"><h3>Stock entries</h3></div>
+    <table class="tbl"><thead><tr><th>Stock entry</th><th>Purpose</th><th>Date</th><th class="num">Value out (OMR)</th><th class="num">Value in (OMR)</th></tr></thead>
+    <tbody>${stes.length ? stes.map((n) => { const x = getDoc('stock-entry', n); return `<tr class="click" data-href="${formHref('stock-entry', n)}"><td class="link">${n}</td><td>${esc(x.stock_entry_type)}</td><td>${fdate(x.posting_date)}</td><td class="num">${num(x.total_outgoing_value)}</td><td class="num">${num(x.total_incoming_value)}</td></tr>`; }).join('') : '<tr><td colspan="5" class="muted">No stock entries yet.</td></tr>'}</tbody></table></div>`;
+}
+function jobCardSections(d) {
+  const w = WO_OF[d.work_order];
+  return `<div class="card" data-t="jc-detail"><div class="card-h"><h3>Job card</h3>${pill(d.status)}</div><div class="card-b"><div class="fields">
+    <div class="fld"><div class="lbl">Work order</div><div class="val">${docLink(d.work_order)}</div></div><div class="fld"><div class="lbl">Item</div><div class="val">${docLink(w?.production_item)}</div></div>
+    <div class="fld"><div class="lbl">Operation</div><div class="val">${docLink(d.operation)}</div></div><div class="fld"><div class="lbl">Workstation</div><div class="val">${docLink(d.workstation)}</div></div>
+    <div class="fld"><div class="lbl">Qty to manufacture</div><div class="val">${d.for_quantity}</div></div><div class="fld"><div class="lbl">Completed qty</div><div class="val">${d.total_completed_qty}</div></div>
+    <div class="fld"><div class="lbl">Time logged</div><div class="val">${d.total_time_in_mins} mins (${mins(d.total_time_in_mins)})</div></div></div></div></div>`;
+}
+function workstationSections(d) {
+  const parts = [['Labour', d.hour_rate_labour], ['Electricity', d.hour_rate_electricity], ['Consumables', d.hour_rate_consumable], ['Rent', d.hour_rate_rent]];
+  return `<div class="card" data-t="ws-rate"><div class="card-h"><h3>Operating costs per hour</h3></div><div class="card-b" style="display:flex;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px" class="small muted">The hour rate is the cost of one hour at this workstation. Operations in the BOM and work order are costed at this rate, so assembly time becomes part of the product cost.</div>
+    <table class="totals">${parts.map(([l, v]) => `<tr><td>${l}</td><td class="num">${omr(v)}</td></tr>`).join('')}<tr class="gt"><td>Hour rate</td><td class="num">${omr(d.hour_rate)}</td></tr><tr><td>Production capacity</td><td class="num">${d.production_capacity} jobs at a time</td></tr></table></div></div>`;
+}
+function routingSections(d) {
+  return `<div class="card" data-t="routing-ops"><div class="card-h"><h3>Operations</h3><span class="sub">In sequence, per unit</span></div>
+    <table class="tbl"><thead><tr><th class="idx">#</th><th>Operation</th><th>Workstation</th><th class="num">Time</th><th class="num">Hour rate</th><th class="num">Operating cost (OMR)</th></tr></thead>
+    <tbody>${d.operations.map((o, i) => `<tr><td class="idx">${i + 1}</td><td><b>${docLink(o.operation)}</b><div class="small muted">${esc(o.description)}</div></td><td>${docLink(o.workstation)}</td><td class="num">${o.time_in_mins} mins</td><td class="num">${num(o.hour_rate)}</td><td class="num"><b>${num(o.operating_cost)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="3">Total per unit</td><td class="num">${d._mins} mins</td><td></td><td class="num">${num(d._cost)}</td></tr></tfoot></table></div>`;
+}
+
+/* ---------- VAT setup screens ---------- */
+function itemTaxTemplateSections(d) {
+  const items = (TAX.item_tax_assignments || []).filter((a) => a.item_tax_template === d.name);
+  return `<div class="card" data-t="itt-rates"><div class="card-h"><h3>Tax rates</h3></div>
+    <table class="tbl"><thead><tr><th>Tax type (account)</th><th class="num">Rate</th></tr></thead><tbody>${d.taxes.map((x) => `<tr><td>${esc(x.tax_type.replace(/ - INFY$/, ''))}</td><td class="num"><b>${x.tax_rate}%</b></td></tr>`).join('')}</tbody></table></div>
+  <div class="card"><div class="card-h"><h3>Items using this template</h3><span class="sub">${items.length}</span></div>
+    <table class="tbl"><thead><tr><th>Item</th><th>Item name</th><th>Tax category</th></tr></thead><tbody>${items.map((a) => `<tr class="click" data-href="${formHref('item', a.item_code)}"><td class="link">${a.item_code}</td><td>${esc(ITEM[a.item_code]?.item_name || '')}</td><td>${a.tax_category ? esc(a.tax_category) : '<span class="muted">Any (sales)</span>'}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">None</td></tr>'}</tbody></table></div>`;
+}
+function taxesTemplateSections(d) {
+  return `<div class="card" data-t="tt-rows"><div class="card-h"><h3>${d.kind} taxes and charges</h3>${d.is_default ? pill('Default template', 'ok') : ''}</div>
+    <table class="tbl"><thead><tr><th>Type</th><th>Account head</th><th>Description</th><th class="num">Rate</th>${d.kind === 'Purchase' ? '<th>Add or deduct</th>' : ''}</tr></thead>
+    <tbody>${d.taxes.map((x) => `<tr><td>${esc(x.charge_type)}</td><td>${esc(x.account_head.replace(/ - INFY$/, ''))}</td><td>${esc(x.description)}</td><td class="num"><b>${x.rate}%</b></td>${d.kind === 'Purchase' ? `<td>${esc(x.add_deduct_tax || '')}</td>` : ''}</tr>`).join('')}</tbody></table>
+    <div class="card-b small muted">${d.is_default ? `Applied automatically to every new ${d.kind.toLowerCase()} document; the item's tax template sets the rate per line.` : 'Picked manually where needed.'}</div></div>`;
+}
+
+/* ---------- Item: prices, tax templates, BOM, stock ---------- */
 function itemSections(d) {
   const sb = D.stock_balance.filter((s) => s.item_code === d.item_code);
-  if (!sb.length) return '';
-  return `<div class="card"><div class="card-h"><h3>Stock levels</h3></div><table class="tbl"><thead><tr><th>Warehouse</th><th class="num">Qty</th><th class="num">Value (OMR)</th><th class="num">Avg cost / unit</th></tr></thead>
-    <tbody>${sb.map((s) => `<tr><td>${s.warehouse}</td><td class="num">${s.actual_qty}</td><td class="num">${num(s.stock_value)}</td><td class="num">${num(s.stock_value / s.actual_qty)}</td></tr>`).join('')}</tbody></table></div>`;
+  const prices = D.item_prices.filter((p) => p.item_code === d.item_code);
+  const taxes = (TAX.item_tax_assignments || []).filter((a) => a.item_code === d.item_code);
+  const boms = D.boms.filter((b) => b.item === d.item_code);
+  const usedIn = D.boms.filter((b) => b.items.some((i) => i.item_code === d.item_code));
+  return `${prices.length ? `<div class="card" data-t="item-prices"><div class="card-h"><h3>Item prices</h3><span class="sub">Price lists: where the selling and buying price is set</span></div>
+    <table class="tbl"><thead><tr><th>Price list</th><th class="num">Rate (OMR)</th><th>Valid from</th><th></th></tr></thead><tbody>${prices.map((p) => `<tr class="click" data-href="${formHref('item-price', p.name)}"><td><b>${esc(p.price_list)}</b></td><td class="num">${num(p.price_list_rate)}</td><td>${fdate(p.valid_from)}</td><td class="small muted">${p.price_list === 'Standard Selling' ? 'Fills the rate on quotations, orders and invoices' : 'Fills the rate on purchase documents'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  ${taxes.length ? `<div class="card" data-t="item-tax"><div class="card-h"><h3>Item tax</h3><span class="sub">VAT is tied to the item through its Item Tax Template</span></div>
+    <table class="tbl"><thead><tr><th>Item tax template</th><th>Tax category</th><th>Rate and account</th></tr></thead><tbody>${taxes.map((a) => { const t = D.item_tax_templates.find((x) => x.name === a.item_tax_template); return `<tr><td>${docLink(a.item_tax_template)}</td><td>${a.tax_category ? esc(a.tax_category) : '<span class="muted">Any (used on sales)</span>'}</td><td class="small">${t ? esc(t._rates) : ''}</td></tr>`; }).join('')}</tbody></table></div>` : ''}
+  ${boms.length || usedIn.length ? `<div class="card" data-t="item-bom"><div class="card-h"><h3>Manufacturing</h3></div><table class="tbl"><tbody>
+    ${boms.map((b) => `<tr><td>Default BOM</td><td>${docLink(b.name)}</td><td class="num">Total cost ${omr(b.total_cost)}</td></tr>`).join('')}${usedIn.filter((b) => b.item !== d.item_code).map((b) => `<tr><td>Used in BOM</td><td>${docLink(b.name)}</td><td class="num">${esc(b.item_name)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  ${sb.length ? `<div class="card"><div class="card-h"><h3>Stock levels</h3></div><table class="tbl"><thead><tr><th>Warehouse</th><th class="num">Qty</th><th class="num">Value (OMR)</th><th class="num">Avg cost / unit</th></tr></thead>
+    <tbody>${sb.map((s) => `<tr><td>${s.warehouse}</td><td class="num">${s.actual_qty}</td><td class="num">${num(s.stock_value)}</td><td class="num">${s.actual_qty ? num(s.stock_value / s.actual_qty) : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
 }
 
 /* Stock entries carry only totals; lines below are derived where the values reconcile exactly */
@@ -641,6 +754,19 @@ const STE_LINES = {
   'INFY-STE-2026-00003': { note: 'Derived: parts replaced free of charge under warranty claim INFY-WRN-2026-00002, booked to 5121 Warranty Repairs and Replacements (13.000).', from: 'Stores - INFY', to: null, lines: [['DEMO-FAN-01', 1, 7], ['DEMO-BRG-01', 1, 6]] },
 };
 function steSections(d) {
+  const m = STE_DETAIL[d.name];
+  if (m) {
+    const fg = m.items.find((i) => i.is_finished_item);
+    return `<div class="card" data-t="ste-items"><div class="card-h"><h3>Items</h3><span class="sub">${esc(m.purpose)} for work order ${docLink(m.work_order)}</span></div>
+      <table class="tbl"><thead><tr><th>Item</th><th>Source warehouse</th><th>Target warehouse</th><th class="num">Qty</th><th class="num">Basic rate</th><th class="num">Valuation rate</th><th class="num">Amount (OMR)</th></tr></thead>
+      <tbody>${m.items.map((i) => `<tr class="${i.is_finished_item ? 'hl' : ''}"><td><a class="link" href="${formHref('item', i.item_code)}">${i.item_code}</a><div class="small muted">${esc(ITEM[i.item_code]?.item_name || '')}${i.is_finished_item ? ' · finished good' : ''}</div></td><td class="small">${esc(i.s_warehouse || '—')}</td><td class="small">${esc(i.t_warehouse || '—')}</td><td class="num">${i.qty}</td><td class="num">${num(i.basic_rate)}</td><td class="num"><b>${num(i.valuation_rate)}</b></td><td class="num">${num(i.amount)}</td></tr>`).join('')}</tbody></table></div>
+    ${m.additional_costs?.length ? `<div class="card" data-t="ste-costs"><div class="card-h"><h3>Additional costs</h3><span class="sub">Operating cost added to the finished goods value</span></div>
+      <table class="tbl"><thead><tr><th>Expense account</th><th>Description</th><th class="num">Amount (OMR)</th></tr></thead><tbody>${m.additional_costs.map((c) => `<tr><td>${esc(c.expense_account.replace(/ - INFY$/, ''))}</td><td>${esc(c.description)}</td><td class="num">${num(c.amount)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="2">Total additional costs</td><td class="num">${num(m.total_additional_costs)}</td></tr></tfoot></table></div>` : ''}
+    ${fg ? `<div class="card" data-t="ste-fg"><div class="card-h"><h3>Finished goods valuation</h3></div><div class="card-b"><table class="totals" style="max-width:520px;margin-left:0">
+      <tr><td>Materials consumed</td><td class="num">${omr(m.total_outgoing_value)}</td></tr><tr><td>Operating cost (assembly + run test)</td><td class="num">${omr(m.total_additional_costs)}</td></tr>
+      <tr class="gt"><td>Value of ${fg.qty} × ${esc(fg.item_code)}</td><td class="num">${omr(fg.amount)}</td></tr><tr><td>Valuation per package</td><td class="num"><b>${omr(fg.valuation_rate)}</b></td></tr></table></div></div>` : ''}`;
+  }
   const x = STE_LINES[d.name];
   if (!x) return '';
   return `<div class="card" data-t="items"><div class="card-h"><h3>Items</h3><span class="sub">${x.from}${x.to ? ' → ' + x.to : ' → issued'}</span></div>
@@ -667,7 +793,7 @@ function formExtras(slug, d) {
   if (['sales-order', 'purchase-order'].includes(slug)) parts.push(progressCard(d));
   parts.push(docChain(slug, d));
   if (['quotation', 'sales-order', 'delivery-note', 'sales-invoice', 'supplier-quotation', 'purchase-order', 'purchase-receipt', 'purchase-invoice'].includes(slug)) {
-    parts.push(itemsCard(d, cur), totalsCard(slug, d, cur));
+    parts.push(itemsCard(d, cur, slug), totalsCard(slug, d, cur));
   }
   if (slug === 'landed-cost-voucher') parts.push(lcvSections(d));
   if (slug === 'rfq') parts.push(rfqCompare(d));
@@ -681,6 +807,13 @@ function formExtras(slug, d) {
   if (slug === 'item') parts.push(itemSections(d));
   if (slug === 'stock-entry') parts.push(steSections(d));
   if (slug === 'payment-entry') parts.push(paymentSections(d));
+  if (slug === 'bom') parts.push(bomSections(d));
+  if (slug === 'work-order') parts.push(workOrderSections(d));
+  if (slug === 'job-card') parts.push(jobCardSections(d));
+  if (slug === 'workstation') parts.push(workstationSections(d));
+  if (slug === 'routing') parts.push(routingSections(d));
+  if (slug === 'item-tax-template') parts.push(itemTaxTemplateSections(d));
+  if (slug === 'taxes-template') parts.push(taxesTemplateSections(d));
   return parts.join('');
 }
 
@@ -705,7 +838,7 @@ function formView(slug, name) {
   let details = detailsCard(d, extra);
   if (badVat) details = details.replace(`<div class="fld "><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}</div></div>`, `<div class="fld bad"><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}<span class="flag">Invalid format</span></div></div>`);
   const tabs = FORM_TABS[slug] || ['Details', 'More Info', 'Connections'];
-  const isSubmitted = !['customer', 'supplier', 'item', 'lead', 'asset-category'].includes(slug);
+  const isSubmitted = !['customer', 'supplier', 'item', 'lead', 'asset-category', 'workstation', 'operation', 'routing', 'item-tax-template', 'taxes-template', 'item-price'].includes(slug);
   const failed = slug === 'sales-invoice' && EINV_ERR[name];
   const actions = `${isSubmitted ? `<button class="btn btn-default" data-act="mock">View${icon('down', 'caret')}</button><button class="btn btn-primary" data-act="mock">Create${icon('down', 'caret')}</button>` : ''}
     <button class="btn btn-default" data-act="mock">Actions${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="mock" aria-label="Print">${icon('printer')}</button>
@@ -729,12 +862,15 @@ const REP_FILTERS = {
   pl: ['Infy Demo Company', 'Finance Book', 'Fiscal Year', '01-10-2026', '20-11-2026', 'Yearly'],
   bs: ['Infy Demo Company', 'Finance Book', 'Fiscal Year', '01-10-2026', '20-11-2026', 'Yearly'],
   gl: ['Infy Demo Company', 'Finance Book', '01-10-2026', '20-11-2026', 'Account', 'Categorize by Voucher'],
-  ar: ['Infy Demo Company', '20-11-2026', 'Due Date', 'Customer', 'Customer Group', '30-60-90-120'],
-  ap: ['Infy Demo Company', '20-11-2026', 'Due Date', 'Supplier', 'Supplier Group', '30-60-90-120'],
+  ar: ['Infy Demo Company', '21-11-2026', 'Posting Date', '30, 40, 120', 'Customer', 'Customer Group'],
+  ap: ['Infy Demo Company', '21-11-2026', 'Posting Date', '30, 40, 120', 'Supplier', 'Supplier Group'],
+  'stock-ageing': ['Infy Demo Company', '21-11-2026', 'Warehouse', 'Item', 'Brand', '30, 60, 90'],
+  'vat-recon': ['Infy Demo Company', '01-10-2026', '30-11-2026', 'Month', 'Party', 'Invoice type'],
+  'vat-month': ['Infy Demo Company', '01-10-2026', '30-11-2026', 'Monthly'],
   stock: ['Infy Demo Company', '01-10-2026', '20-11-2026', 'Item Group', 'Item', 'Warehouse'],
   coa: ['Infy Demo Company'],
 };
-const FILLED = /Infy|20\d\d|Yearly|Categorize|30-60|Summarized|November|Due Date/;
+const FILLED = /Infy|20\d\d|Yearly|Categorize|30, |Summarized|November|Posting Date|Monthly/;
 function reportHead(k, sub, extra = '') {
   const r = REPORTS[k];
   const actions = `${extra}<button class="btn btn-default" data-act="mock">Actions${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="refresh" aria-label="Refresh">${icon('refresh')}</button><button class="btn btn-icon" data-act="mock" aria-label="Menu">${icon('more')}</button>`;
@@ -850,35 +986,93 @@ function agingBucket(due) {
   return 4;
 }
 const BUCKETS = ['Not yet due', '1–30 days', '31–60 days', '61–90 days', '90+ days'];
-function arReport() {
-  const open = D.sales_invoices.filter((s) => s.outstanding_amount);
-  const by = {};
-  open.forEach((s) => { const r = (by[s.customer] = by[s.customer] || [0, 0, 0, 0, 0]); r[agingBucket(s.due_date)] += s.outstanding_amount; });
-  const tot = [0, 0, 0, 0, 0];
-  Object.values(by).forEach((r) => r.forEach((v, i) => { tot[i] += v; }));
-  const grand = r3(sum(tot, (x) => x));
-  return `${reportHead('ar', `Amounts owed by customers as at ${fdate(AS_OF)}, by due date`)}
-  <div class="grid g3" data-t="ar-kpis">${[['Total receivable', grand, ''], ['Not yet due', tot[0], 'ok'], ['Overdue', tot[1] + tot[2] + tot[3] + tot[4], 'bad']].map(([l, v, c]) => `<div class="card kpi flat ${c}"><div class="lbl">${l}</div><div class="val" style="font-size:22px"><small>OMR</small>${num(v)}</div></div>`).join('')}</div>
-  <div class="card" data-t="ar-table"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Customer</th>${BUCKETS.map((b) => `<th class="num">${b}</th>`).join('')}<th class="num">Total (OMR)</th></tr></thead>
-    <tbody>${Object.entries(by).sort((a, b) => sum(b[1], (x) => x) - sum(a[1], (x) => x)).map(([c, r]) => `<tr><td>${docLink(c)}</td>${r.map((v) => `<td class="num ${v < 0 ? 'neg' : ''}">${v ? num(v) : '<span class="muted">—</span>'}</td>`).join('')}<td class="num"><b>${num(sum(r, (x) => x))}</b></td></tr>`).join('')}</tbody>
-    <tfoot><tr><td>Total</td>${tot.map((v) => `<td class="num">${num(v)}</td>`).join('')}<td class="num">${num(grand)}</td></tr></tfoot></table></div>
-    <div class="card-b small muted" style="border-top:1px solid var(--border-2)">Total agrees with ledger 1310 Debtors (${omr(FIN.receivable)}). Credit notes appear as negative amounts.</div></div>
-  <div class="card"><div class="card-h"><h3>Open invoices</h3><span class="sub">${open.length} documents</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Due</th><th class="num">Total</th><th class="num">Outstanding</th><th>Status</th></tr></thead>
-    <tbody>${open.sort((a, b) => a.due_date.localeCompare(b.due_date)).map((s) => `<tr class="click" data-href="${formHref('sales-invoice', s.name)}"><td class="link">${s.name}</td><td>${esc(s.customer)}</td><td>${fdate(s.posting_date)}</td><td>${fdate(s.due_date)}</td><td class="num">${num(s.grand_total)}</td><td class="num ${s.outstanding_amount < 0 ? 'neg' : ''}"><b>${num(s.outstanding_amount)}</b></td><td>${pill(s.status)}</td></tr>`).join('')}</tbody></table></div></div>`;
+/* ---------- Ageing (report settings as on the ERP: Report Date 21-11-2026, Ageing Based On Posting Date, range 30, 40, 120) ---------- */
+const AGE_BUCKETS = ['0-30', '31-40', '41-120', '121-Above'];
+function ageingReport(k, data, summary, party, gl) {
+  const rows = data.rows.filter((r) => r.voucher_no);
+  const tot = [1, 2, 3, 4].map((i) => r3(sum(rows, (r) => +r['range' + i] || 0)));
+  const out = r3(sum(rows, 'outstanding'));
+  const sumRows = summary.rows.filter((r) => r.party);
+  const isAP = k === 'ap';
+  return `${reportHead(k, `Ageing based on posting date · ranges 30, 40, 120 · report date 21-11-2026`)}
+  <div class="grid g4" data-t="${k}-kpis" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+    <div class="card kpi flat"><div class="lbl">Total outstanding</div><div class="val" style="font-size:22px"><small>OMR</small>${num(out)}</div><div class="foot">${rows.length} open documents</div></div>
+    ${AGE_BUCKETS.map((b, i) => `<div class="card kpi flat ${i === 0 ? 'ok' : i === 3 ? 'bad' : 'warn'}"><div class="lbl">${b} days</div><div class="val" style="font-size:22px"><small>OMR</small>${num(tot[i])}</div></div>`).join('')}
+  </div>
+  <div class="card" data-t="${k}-table"><div class="card-h"><h3>${isAP ? 'Accounts Payable' : 'Accounts Receivable'}</h3><span class="sub">One row per open document, aged from its posting date</span></div><div class="tbl-wrap"><table class="tbl dt">
+    <thead><tr><th>Posting Date</th><th>${isAP ? 'Supplier' : 'Customer'}</th><th>Voucher No</th>${isAP ? '<th>Bill No</th>' : ''}<th>Due Date</th><th class="num">Invoiced</th><th class="num">Paid</th><th class="num">Outstanding</th><th class="num">Age (Days)</th>${AGE_BUCKETS.map((b) => `<th class="num">${b}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r) => `<tr class="click" data-href="${formHref(isAP ? 'purchase-invoice' : 'sales-invoice', r.voucher_no)}"><td>${fdate(r.posting_date)}</td><td>${esc(r.party)}</td><td class="link">${r.voucher_no}</td>${isAP ? `<td class="mono small">${esc(r.bill_no || '')}</td>` : ''}<td>${fdate(r.due_date)}</td>
+      <td class="num">${num(r.invoiced)}</td><td class="num">${num(r.paid)}</td><td class="num ${r.outstanding < 0 ? 'neg' : ''}"><b>${num(r.outstanding)}</b></td><td class="num"><b>${r.age}</b></td>
+      ${[1, 2, 3, 4].map((i) => `<td class="num ${+r['range' + i] < 0 ? 'neg' : ''}">${+r['range' + i] ? num(+r['range' + i]) : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="${isAP ? 5 : 4}">Total</td><td class="num">${num(sum(rows, 'invoiced'))}</td><td class="num">${num(sum(rows, 'paid'))}</td><td class="num">${num(out)}</td><td></td>${tot.map((v) => `<td class="num">${num(v)}</td>`).join('')}</tr></tfoot></table></div>
+    <div class="card-b small muted" style="border-top:1px solid var(--border-2)">Total agrees with ${gl}. ${isAP ? 'USD bills are shown in OMR at 0.385.' : 'Credit notes show as negative amounts.'}</div></div>
+  <div class="card" data-t="${k}-summary"><div class="card-h"><h3>${isAP ? 'Accounts Payable Summary' : 'Accounts Receivable Summary'}</h3><span class="sub">By ${party}</span></div><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>${isAP ? 'Supplier' : 'Customer'}</th><th class="num">Invoiced</th><th class="num">Paid</th><th class="num">Outstanding</th>${AGE_BUCKETS.map((b) => `<th class="num">${b}</th>`).join('')}</tr></thead>
+    <tbody>${sumRows.map((r) => `<tr><td>${docLink(r.party)}</td><td class="num">${num(r.invoiced)}</td><td class="num">${num(r.paid)}</td><td class="num"><b>${num(r.outstanding)}</b></td>${[1, 2, 3, 4].map((i) => `<td class="num">${+r['range' + i] ? num(+r['range' + i]) : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+}
+function arReport() { return ageingReport('ar', D.ar_ageing, D.ar_ageing_summary, 'customer', `ledger 1310 Debtors (${omr(FIN.receivable)})`); }
+function apReport() { return ageingReport('ap', D.ap_ageing, D.ap_ageing_summary, 'supplier', `ledgers 2110 Creditors (${omr(-glBal('2110'))}) and 2130 Creditors - Foreign Suppliers (USD) (${omr(-glBal('2130'))})`); }
+
+function stockAgeingReport() {
+  const rows = D.stock_ageing.rows;
+  const B = ['0 - 30', '31 - 60', '61 - 90', '91 - Above'];
+  const totV = [1, 2, 3, 4].map((i) => sum(rows, 'range' + i + 'value'));
+  return `${reportHead('stock-ageing', 'Age of stock on hand, first in first out · default ranges 30, 60, 90')}
+  <div class="grid g4" data-t="stock-ageing-kpis">${B.map((b, i) => `<div class="card kpi flat ${i ? 'warn' : 'ok'}"><div class="lbl">${b} days</div><div class="val" style="font-size:22px"><small>OMR</small>${num(totV[i])}</div></div>`).join('')}</div>
+  <div class="card" data-t="stock-ageing-table"><div class="tbl-wrap"><table class="tbl dt"><thead><tr><th>Item</th><th>Item group</th><th class="num">Available qty</th><th class="num">Average age (days)</th>${B.map((b) => `<th class="num">Age (${b})</th><th class="num">Value (${b})</th>`).join('')}<th class="num">Earliest</th><th class="num">Latest</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr class="click" data-href="${formHref('item', r.item_code)}"><td><span class="link">${r.item_code}</span><div class="small muted">${esc(r.item_name)}</div></td><td class="small">${esc(r.item_group)}</td><td class="num">${r.qty}</td><td class="num"><b>${num(r.average_age, 2)}</b></td>
+      ${[1, 2, 3, 4].map((i) => `<td class="num">${r['range' + i] || '<span class="muted">—</span>'}</td><td class="num">${r['range' + i + 'value'] ? num(r['range' + i + 'value']) : '<span class="muted">—</span>'}</td>`).join('')}<td class="num">${r.earliest}</td><td class="num">${r.latest}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="4">Total value</td>${totV.map((v) => `<td></td><td class="num">${num(v)}</td>`).join('')}<td colspan="2" class="num">${num(sum(totV, (x) => x))}</td></tr></tfoot></table></div></div>`;
 }
 
-function apReport() {
-  const open = D.purchase_invoices.filter((p) => p.outstanding_amount);
-  const omrOf = (p) => r3(p.outstanding_amount * (p.currency === 'USD' ? p.conversion_rate : 1));
-  const total = sum(open, omrOf);
-  const usd = sum(open.filter((p) => p.currency === 'USD'), omrOf);
-  return `${reportHead('ap', `Amounts owed to suppliers as at ${fdate(AS_OF)}`)}
-  <div class="grid g3" data-t="ap-kpis">${[['Total payable', total, ''], ['Local suppliers (OMR)', total - usd, ''], ['Foreign suppliers (USD → OMR)', usd, 'warn']].map(([l, v, c]) => `<div class="card kpi ${c}"><div class="lbl">${l}</div><div class="val"><small>OMR</small>${num(v)}</div></div>`).join('')}</div>
-  <div class="card" data-t="ap-table"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Invoice</th><th>Supplier</th><th>Supplier bill</th><th>Date</th><th class="num">Outstanding (invoice currency)</th><th class="num">Rate</th><th class="num">Outstanding (OMR)</th></tr></thead>
-    <tbody>${open.sort((a, b) => omrOf(b) - omrOf(a)).map((p) => `<tr class="click" data-href="${formHref('purchase-invoice', p.name)}"><td class="link">${p.name}</td><td>${esc(p.supplier)}</td><td class="mono">${esc(p.bill_no)}</td><td>${fdate(p.posting_date)}</td>
-      <td class="num">${money(p.outstanding_amount, p.currency)}</td><td class="num">${p.currency === 'USD' ? p.conversion_rate : '1'}</td><td class="num ${p.outstanding_amount < 0 ? 'neg' : ''}"><b>${num(omrOf(p))}</b></td></tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="6">Total</td><td class="num">${num(total)}</td></tr></tfoot></table></div>
-    <div class="card-b small muted" style="border-top:1px solid var(--line-2)">Agrees with ledgers 2110 Creditors (${omr(-glBal('2110'))}) and 2130 Creditors - Foreign Suppliers (USD) (${omr(-glBal('2130'))}).</div></div>`;
+function lcaReport(q = {}) {
+  const all = D.landed_cost_analysis.rows;
+  const rows = all.filter((r) => (!q.pr || r.purchase_receipt === q.pr) && (!q.lcv || r.landed_cost_vouchers === q.lcv) && (!q.item || r.item === q.item));
+  const opts = (key, label, val) => `<select class="fbox" data-lca="${key}" aria-label="${label}"><option value="">${label}</option>${[...new Set(all.map((r) => r[key === 'pr' ? 'purchase_receipt' : key === 'lcv' ? 'landed_cost_vouchers' : 'item']))].sort().map((v) => `<option ${val === v ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
+  const actions = `<button class="btn btn-default" data-act="mock">Actions${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="refresh" aria-label="Refresh">${icon('refresh')}</button>`;
+  return `${crumbs([['Stock', wsHref('stock')], ['Landed Cost Analysis']])}
+  ${pageTitle('Landed Cost Analysis', actions)}
+  <div class="layout-card"><div class="rep-filters" data-t="lca-filters"><span class="fbox filled">Infy Demo Company</span><span class="fbox filled">01-10-2026</span><span class="fbox filled">30-11-2026</span>${opts('pr', 'Purchase Receipt', q.pr)}${opts('lcv', 'Landed Cost Voucher', q.lcv)}${opts('item', 'Item', q.item)}</div>
+    <div style="padding:10px 16px 0" class="demo-note">${icon('info')}Purchase value, landed cost added and the unit cost before and after, per receipt line${q.pr || q.lcv || q.item ? ` · filtered <a href="#/erp/report/lca" style="color:var(--primary)">(clear)</a>` : ''}</div></div>
+  ${rows.length === 1 || q.pr ? `<div class="card"><div class="card-h"><h3>Unit cost before and after landed cost</h3><span class="sub">${q.pr ? docLink(q.pr) : ''}</span></div><div class="card-b"><div class="grid g3" data-t="lca-unit">
+    ${rows.map((r) => `<div class="card kpi flat"><div class="lbl">${esc(r.item)} · ${r.qty} units</div><div class="val" style="font-size:22px"><small>OMR</small>${num(r.old_unit_cost)} → <span style="color:var(--primary)">${num(r.new_unit_cost)}</span></div><div class="foot">+${num(r.increase_per_unit)} per unit (${r['landed_cost_%']}%) from ${docLink(r.landed_cost_vouchers)}</div></div>`).join('')}</div></div></div>` : ''}
+  <div class="card" data-t="lca-table"><div class="tbl-wrap"><table class="tbl dt"><thead><tr><th>Purchase Receipt</th><th>Supplier</th><th>Item</th><th class="num">Qty</th><th class="num">Purchase Value</th><th class="num">Landed Cost Added</th><th class="num">New Total Value</th><th class="num">Old Unit Cost</th><th class="num">New Unit Cost</th><th class="num">Increase %</th><th>Landed Cost Voucher</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr><td>${docLink(r.purchase_receipt)}</td><td class="small">${esc(r.supplier)}</td><td><a class="link" href="${formHref('item', r.item)}">${r.item}</a><div class="small muted">${esc(r.item_name)}</div></td><td class="num">${r.qty}</td><td class="num">${num(r.purchase_value)}</td><td class="num">+ ${num(r.landed_cost_added)}</td><td class="num"><b>${num(r.new_total_value)}</b></td><td class="num">${num(r.old_unit_cost)}</td><td class="num" style="color:var(--primary);font-weight:700">${num(r.new_unit_cost)}</td><td class="num">${r['landed_cost_%']}%</td><td>${docLink(r.landed_cost_vouchers)}</td></tr>`).join('')}</tbody>
+    <tfoot><tr data-t="lca-total"><td colspan="4">Total</td><td class="num">${num(sum(rows, 'purchase_value'))}</td><td class="num">+ ${num(sum(rows, 'landed_cost_added'))}</td><td class="num">${num(sum(rows, 'new_total_value'))}</td><td colspan="4"></td></tr></tfoot></table></div></div>`;
+}
+
+function vatReconReport() {
+  const all = D.vat_reconciliation.rows;
+  const docs = all.filter((r) => r.month);
+  const sumRows = all.filter((r) => !r.month);
+  const gl = sumRows.find((r) => r.invoice_no === 'GL balance');
+  const months = [...new Set(docs.map((r) => r.month))];
+  const line = (r, cls = '') => `<tr class="${cls}"><td>${r.posting_date ? fdate(r.posting_date) : ''}</td><td>${r.invoice_no?.startsWith('INFY-') ? docLink(r.invoice_no) : `<b>${esc(r.invoice_no || '')}</b>`}</td><td class="small">${esc(r.party || '')}</td><td class="small">${esc(r.type || '')}</td>
+    <td class="num">${r.taxable_amount != null ? num(r.taxable_amount) : ''}</td><td class="num">${num(r.output_vat)}</td><td class="num">${num(r.input_vat)}</td><td class="num">${num(r.rcm_vat)}</td><td class="num ${r.net_vat_payable < 0 ? 'neg' : ''}"><b>${num(r.net_vat_payable)}</b></td></tr>`;
+  return `${reportHead('vat-recon', 'Every sales and purchase invoice with its VAT, reconciled to the VAT ledgers')}
+  <div class="grid g4" data-t="vat-kpis">
+    <div class="card kpi flat"><div class="lbl">Output VAT (2320)</div><div class="val" style="font-size:22px"><small>OMR</small>${num(gl.output_vat)}</div></div>
+    <div class="card kpi flat"><div class="lbl">Input VAT (1510)</div><div class="val" style="font-size:22px"><small>OMR</small>${num(gl.input_vat)}</div></div>
+    <div class="card kpi flat"><div class="lbl">Reverse charge (2330)</div><div class="val" style="font-size:22px"><small>OMR</small>${num(gl.rcm_vat)}</div></div>
+    <div class="card kpi flat ${gl.net_vat_payable < 0 ? 'ok' : 'warn'}"><div class="lbl">Net VAT ${gl.net_vat_payable < 0 ? '(refund position)' : 'payable'}</div><div class="val" style="font-size:22px"><small>OMR</small>${num(gl.net_vat_payable)}</div><div class="foot">Output − input + reverse charge</div></div>
+  </div>
+  <div class="card" data-t="vat-gl"><div class="card-h"><h3>Totals against the general ledger</h3>${pill('Difference 0.000', 'ok')}</div><div class="tbl-wrap"><table class="tbl dt">
+    <thead><tr><th></th><th>Line</th><th></th><th>Type</th><th class="num">Taxable</th><th class="num">Output VAT</th><th class="num">Input VAT</th><th class="num">RCM VAT</th><th class="num">Net VAT</th></tr></thead>
+    <tbody>${sumRows.map((r) => line(r, r.invoice_no === 'DIFFERENCE' ? 'grand' : r.invoice_no === 'GL balance' ? 'sub' : '')).join('')}</tbody></table></div>
+    <div class="card-b small muted" style="border-top:1px solid var(--border-2)">Net VAT is negative because input VAT on the fixed assets and imports is larger than output VAT so far: a refund position.</div></div>
+  <div class="card" data-t="vat-table"><div class="card-h"><h3>Invoices</h3><span class="sub">${docs.length} documents, by month</span></div><div class="tbl-wrap"><table class="tbl dt">
+    <thead><tr><th>Posting Date</th><th>Invoice No</th><th>Party</th><th>Type</th><th class="num">Taxable Amount</th><th class="num">Output VAT</th><th class="num">Input VAT</th><th class="num">RCM VAT</th><th class="num">Net VAT Payable</th></tr></thead>
+    <tbody>${months.map((m) => { const rs = docs.filter((r) => r.month === m); return `<tr class="grand"><td colspan="9">${MONTHS[+m.slice(5) - 1]} ${m.slice(0, 4)}</td></tr>` + rs.map((r) => line(r)).join('') +
+      `<tr class="sub"><td colspan="4">Total ${MONTHS[+m.slice(5) - 1]}</td><td></td><td class="num">${num(sum(rs, 'output_vat'))}</td><td class="num">${num(sum(rs, 'input_vat'))}</td><td class="num">${num(sum(rs, 'rcm_vat'))}</td><td class="num">${num(sum(rs, 'net_vat_payable'))}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+}
+
+function vatMonthReport() {
+  const rows = D.vat_summary_by_month.rows;
+  const cols = D.vat_summary_by_month.columns.filter((c) => c.fieldname !== 'month');
+  return `${reportHead('vat-month', 'Output, input and reverse-charge VAT per month, with the ledger balances beside them')}
+  <div class="card" data-t="vat-month-table"><div class="tbl-wrap"><table class="tbl dt"><thead><tr><th>Month</th>${cols.map((c) => `<th class="num">${esc(c.label)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r) => `<tr class="${r.month === 'TOTAL' ? 'grand' : ''}"><td><b>${r.month === 'TOTAL' ? 'Total' : `${MONTHS[+r.month.slice(5) - 1]} ${r.month.slice(0, 4)}`}</b></td>${cols.map((c) => `<td class="num ${r[c.fieldname] < 0 ? 'neg' : ''}">${num(r[c.fieldname])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="card-b small muted" style="border-top:1px solid var(--border-2)">The VAT columns match the GL 2320 / 1510 / 2330 columns month by month, so the difference is 0.000. Use it to fill the monthly VAT return.</div></div>`;
 }
 
 function stockReport() {
@@ -894,8 +1088,8 @@ function stockReport() {
     <div class="banner ok">${icon('checkcircle')}<span>Stock value ${omr(total)} agrees with ledger 1410 Stock In Hand. Imported items carry their freight, duty and clearing (landed cost).</span></div></div></div>`;
 }
 
-function reportView(k) {
-  return ({ coa: coaReport, gl: glReport, pl: plReport, bs: bsReport, ar: arReport, ap: apReport, stock: stockReport }[k] || notFound)();
+function reportView(k, q = {}) {
+  return ({ coa: coaReport, gl: glReport, pl: plReport, bs: bsReport, ar: arReport, ap: apReport, stock: stockReport, 'stock-ageing': stockAgeingReport, lca: () => lcaReport(q), 'vat-recon': vatReconReport, 'vat-month': vatMonthReport }[k] || notFound)();
 }
 function notFound() {
   return `${pageTitle('Page not found')}<div class="card card-b" style="text-align:center;padding:60px"><p class="muted"><a href="#/erp/home" style="color:var(--primary)">Back to Home</a></p></div>`;
@@ -907,6 +1101,6 @@ function erpView(r) {
   if (view === 'ws') return workspace(a);
   if (view === 'list') return listView(a, r.query);
   if (view === 'form') return formView(a, b);
-  if (view === 'report') return reportView(a);
+  if (view === 'report') return reportView(a, r.query);
   return notFound();
 }

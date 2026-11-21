@@ -119,6 +119,12 @@ const App = (() => {
     if (!e.target.closest('.tb-search')) document.getElementById('qres')?.classList.remove('open');
   });
   document.addEventListener('change', (e) => {
+    const lca = e.target.closest('[data-lca]');
+    if (lca) {
+      const q = [...document.querySelectorAll('[data-lca]')].filter((x) => x.value).map((x) => `${x.dataset.lca}=${encodeURIComponent(x.value)}`).join('&');
+      location.hash = `#/erp/report/lca${q ? '?' + q : ''}`;
+      return;
+    }
     const s = e.target.closest('[data-status-filter]');
     if (s) location.hash = `#/erp/list/${s.dataset.statusFilter}${s.value ? '?status=' + encodeURIComponent(s.value) : ''}`;
   });

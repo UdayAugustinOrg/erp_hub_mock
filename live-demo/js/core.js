@@ -60,6 +60,20 @@ const pill = (s, tone, cls = '') => s ? `<span class="pill ${tone || toneOf(s)} 
 
 /* ---------- Data index ---------- */
 const D = window.ERP;
+/* Manufacturing and VAT setup records live in sub-objects of the export; expose them as flat lists */
+const MFG = D.manufacturing || {};
+D.boms = MFG.boms || [];
+D.work_orders = MFG.work_orders || [];
+D.workstations = MFG.workstations || [];
+D.operations = MFG.operations || [];
+D.routings = MFG.routings || [];
+D.job_cards = D.work_orders.flatMap((w) => (w.job_cards || []).map((j) => ({ ...j, work_order: w.name, production_item: w.production_item })));
+const STE_DETAIL = Object.fromEntries((MFG.stock_entries || []).map((x) => [x.name, x]));
+D.stock_entries.forEach((x) => { if (STE_DETAIL[x.name]) Object.assign(x, { work_order: STE_DETAIL[x.name].work_order, fg_completed_qty: STE_DETAIL[x.name].fg_completed_qty, total_additional_costs: STE_DETAIL[x.name].total_additional_costs }); });
+const TAX = D.tax_setup || {};
+D.item_tax_templates = TAX.item_tax_templates || [];
+D.item_prices = (TAX.item_prices || []).map((p) => ({ ...p, name: `${p.item_code} · ${p.price_list}` }));
+D.tax_templates = [...(TAX.sales_taxes_and_charges_templates || []).map((t) => ({ ...t, kind: 'Sales' })), ...(TAX.purchase_taxes_and_charges_templates || []).map((t) => ({ ...t, kind: 'Purchase' }))];
 const DOCTYPES = {
   customer: { src: 'customers', id: 'name', label: 'Customers', one: 'Customer', module: 'selling', icon: 'users',
     cols: [['customer_group', 'Group'], ['territory', 'Territory'], ['tax_id', 'VAT number'], ['custom_cr_number', 'CR number']] },
@@ -105,6 +119,24 @@ const DOCTYPES = {
     cols: [['customer', 'Customer'], ['mntc_date', 'Visit date', 'date'], ['maintenance_type', 'Type'], ['_claim', 'Warranty claim']] },
   asset: { src: 'assets', label: 'Assets', one: 'Asset', module: 'assets', icon: 'building',
     cols: [['asset_name', 'Asset'], ['asset_category', 'Category', 'cat'], ['available_for_use_date', 'In use from', 'date'], ['gross_purchase_amount', 'Gross value', 'omr'], ['depreciation_booked', 'Depreciation booked', 'omr'], ['_nbv', 'Net book value', 'omr']] },
+  bom: { src: 'boms', label: 'Bills of Materials', one: 'BOM', module: 'manufacturing', icon: 'layers', status: (r) => (r.is_default ? 'Default' : r.is_active ? 'Active' : 'Inactive'),
+    cols: [['item', 'Item'], ['item_name', 'Item name'], ['quantity', 'Quantity', 'n1'], ['raw_material_cost', 'Raw material cost', 'omr'], ['operating_cost', 'Operating cost', 'omr'], ['total_cost', 'Total cost', 'omr']] },
+  'work-order': { src: 'work_orders', label: 'Work Orders', one: 'Work Order', module: 'manufacturing', icon: 'clip',
+    cols: [['production_item', 'Item to manufacture'], ['bom_no', 'BOM'], ['qty', 'Qty to manufacture', 'n1'], ['produced_qty', 'Manufactured qty', 'n1'], ['planned_start_date', 'Planned start', 'date']] },
+  'job-card': { src: 'job_cards', label: 'Job Cards', one: 'Job Card', module: 'manufacturing', icon: 'clock',
+    cols: [['work_order', 'Work order'], ['operation', 'Operation'], ['workstation', 'Workstation'], ['for_quantity', 'Qty to manufacture', 'n1'], ['total_completed_qty', 'Completed qty', 'n1'], ['total_time_in_mins', 'Time (mins)', 'n1']] },
+  workstation: { src: 'workstations', label: 'Workstations', one: 'Workstation', module: 'manufacturing', icon: 'cpu', status: () => 'Active',
+    cols: [['description', 'Description'], ['hour_rate', 'Hour rate (OMR)', 'omr'], ['production_capacity', 'Capacity', 'n1']] },
+  operation: { src: 'operations', label: 'Operations', one: 'Operation', module: 'manufacturing', icon: 'wrench', status: () => 'Active',
+    cols: [['workstation', 'Default workstation'], ['description', 'Description', 'clip']] },
+  routing: { src: 'routings', label: 'Routings', one: 'Routing', module: 'manufacturing', icon: 'arrow', status: () => 'Active',
+    cols: [['_ops', 'Operations'], ['_mins', 'Time per unit (mins)', 'n1'], ['_cost', 'Operating cost per unit', 'omr']] },
+  'item-price': { src: 'item_prices', label: 'Item Prices', one: 'Item Price', module: 'selling', icon: 'coins', status: (r) => r.price_list,
+    cols: [['item_code', 'Item'], ['_item_name', 'Item name'], ['price_list', 'Price list'], ['price_list_rate', 'Rate (OMR)', 'omr'], ['valid_from', 'Valid from', 'date']] },
+  'item-tax-template': { src: 'item_tax_templates', label: 'Item Tax Templates', one: 'Item Tax Template', module: 'accounting', icon: 'percent', status: (r) => (r.disabled ? 'Disabled' : 'Enabled'),
+    cols: [['title', 'Title'], ['_rates', 'Tax rates'], ['_items', 'Items using it', 'n1']] },
+  'taxes-template': { src: 'tax_templates', label: 'Sales and Purchase Taxes Templates', one: 'Taxes and Charges Template', module: 'accounting', icon: 'receipt', status: (r) => (r.is_default ? 'Default' : 'Enabled'),
+    cols: [['kind', 'Used on'], ['_rows', 'Tax rows']] },
   'asset-category': { src: 'asset_categories', label: 'Asset Categories', one: 'Asset Category', module: 'assets', icon: 'layers', status: (r) => `${r.life_years} years`,
     cols: [['life_years', 'Useful life (years)', 'n1'], ['life_months', 'Months'], ['_fa', 'Fixed asset account'], ['_de', 'Depreciation expense account']] },
   'asset-depreciation-schedule': { src: 'asset_depreciation_schedules', label: 'Asset Depreciation Schedules', one: 'Asset Depreciation Schedule', module: 'assets', icon: 'calendar',
@@ -129,7 +161,7 @@ const SERIES = [['INFY-SINV-', 'sales-invoice'], ['INFY-PINV-', 'purchase-invoic
   ['INFY-AST-', 'asset'], ['INFY-ADS-', 'asset-depreciation-schedule'], ['INFY-ACAP-', 'asset-capitalization'], ['INFY-QTN-', 'quotation'], ['INFY-SO-', 'sales-order'],
   ['INFY-DN-', 'delivery-note'], ['INFY-MR-', 'material-request'], ['INFY-RFQ-', 'rfq'], ['INFY-SQTN-', 'supplier-quotation'], ['INFY-PO-', 'purchase-order'],
   ['INFY-PR-', 'purchase-receipt'], ['INFY-LCV-', 'landed-cost-voucher'], ['INFY-STE-', 'stock-entry'], ['INFY-WRN-', 'warranty-claim'], ['INFY-MV-', 'maintenance-visit'],
-  ['INFY-LEAD-', 'lead'], ['INFY-OPP-', 'opportunity'],
+  ['INFY-LEAD-', 'lead'], ['INFY-OPP-', 'opportunity'], ['INFY-WO-', 'work-order'], ['INFY-JOB-', 'job-card'], ['BOM-', 'bom'],
 ];
 function slugOf(name) {
   const s = SERIES.find(([p]) => String(name).startsWith(p));
@@ -138,6 +170,11 @@ function slugOf(name) {
   if (SUPPLIER[name]) return 'supplier';
   if (ITEM[name]) return 'item';
   if (D.asset_categories.some((c) => c.name === name)) return 'asset-category';
+  if (D.workstations.some((c) => c.name === name)) return 'workstation';
+  if (D.operations.some((c) => c.name === name)) return 'operation';
+  if (D.routings.some((c) => c.name === name)) return 'routing';
+  if (D.item_tax_templates.some((c) => c.name === name)) return 'item-tax-template';
+  if (D.tax_templates.some((c) => c.name === name)) return 'taxes-template';
   return null;
 }
 const formHref = (slug, name) => `#/erp/form/${slug}/${encodeURIComponent(name)}`;
@@ -187,6 +224,11 @@ const EDGE_LIST = [
   // fixed assets: bills, payments, receipts
   [P('07'), PAY('07')], [P('08'), PAY('08')], [P('09'), PAY('09')], [P(28), PAY(29)], [P(29), PAY(30)], [P(30), PAY(31)], [P(32), PAY(32)], [P(33), PAY(33)],
   [P(31), PR('09')], [P(32), PR(10)],
+  // later sales and receipts in the v3 export
+  [SO(7), DN(7)], [DN(7), S(28)], [S(28), PAY(37)], [SO(8), DN(8)], [DN(8), S(31)], [SO(9), DN(9)], [DN(9), S(35)], [S(35), PAY(41)],
+  ['INFY-SO-2026-00010', 'INFY-DN-2026-00010'], ['INFY-DN-2026-00010', S(37)],
+  [S(29), PAY(38)], [S(32), PAY(39)], [S(33), PAY(40)], [S(36), PAY(42)], [S('04'), PAY(43)],
+  [PO(9), PR(11)], [PR(11), P(36)], [P(36), PAY(36)],
 ];
 /* Landed cost vouchers: their receipts and the bills their charges come from, e.g. "(INFY-PINV-2026-00011)" */
 for (const l of D.landed_costs) {
@@ -201,6 +243,13 @@ for (const ds of D.asset_depreciation_schedules) {
   EDGE_LIST.push([ds.asset, ds.name]);
   for (const row of ds.depreciation_schedule) if (row.journal_entry) { EDGE_LIST.push([ds.name, row.journal_entry]); EDGE_LIST.push([ds.asset, row.journal_entry]); }
 }
+/* Manufacturing: BOM, routing, workstation, work orders, job cards, stock entries; the packages sold came from work order 1 */
+for (const b of D.boms) { if (b.routing) EDGE_LIST.push([b.name, b.routing]); (b.operations || []).forEach((o) => EDGE_LIST.push([b.name, o.workstation])); }
+for (const r of D.routings) (r.operations || []).forEach((o) => { EDGE_LIST.push([r.name, o.operation]); EDGE_LIST.push([r.name, o.workstation]); });
+for (const o of D.operations) EDGE_LIST.push([o.name, o.workstation]);
+for (const w of D.work_orders) { EDGE_LIST.push([w.name, w.bom_no]); (w.job_cards || []).forEach((j) => EDGE_LIST.push([w.name, j.name])); }
+for (const x of Object.values(STE_DETAIL)) if (x.work_order) EDGE_LIST.push([x.name, x.work_order]);
+for (const ps of MFG.package_sales || []) EDGE_LIST.push([ps.name, 'INFY-WO-2026-00001']);
 for (const c of D.asset_capitalizations) { EDGE_LIST.push([c.name, c.target_asset]); for (const b of c.cwip_bills) EDGE_LIST.push([c.name, b.name]); }
 
 const LINKS = {};
@@ -242,6 +291,10 @@ function itemsOf(doc) {
 D.rfqs.forEach((r) => { r._suppliers = linkedOf(r.name, 'supplier-quotation').map((q) => getDoc('supplier-quotation', q).supplier).join(', '); });
 D.landed_costs.forEach((l) => { l._receipt = l.receipts[0]?.receipt_document; l._supplier = l.receipts[0]?.supplier; });
 D.maintenance_visits.forEach((m) => { m._claim = linkedOf(m.name, 'warranty-claim')[0] || '—'; });
+D.routings.forEach((r) => { r._ops = (r.operations || []).map((o) => o.operation).join(', '); r._mins = sum(r.operations || [], 'time_in_mins'); r._cost = sum(r.operations || [], 'operating_cost'); });
+D.item_prices.forEach((p) => { p._item_name = ITEM[p.item_code]?.item_name || ''; });
+D.item_tax_templates.forEach((t) => { t._rates = t.taxes.map((x) => `${x.tax_type.replace(/ - INFY$/, '')} ${x.tax_rate}%`).join(' · '); t._items = (TAX.item_tax_assignments || []).filter((a) => a.item_tax_template === t.name).length; });
+D.tax_templates.forEach((t) => { t._rows = t.taxes.map((x) => `${x.account_head.replace(/ - INFY$/, '')} ${x.rate}%${x.add_deduct_tax === 'Deduct' ? ' (deduct)' : ''}`).join(' · '); });
 const ADS_OF = Object.fromEntries(D.asset_depreciation_schedules.map((x) => [x.asset, x]));
 const ASSET_OF = Object.fromEntries(D.assets.map((x) => [x.name, x]));
 D.assets.forEach((a) => { a._nbv = r3(a.gross_purchase_amount - (a.depreciation_booked || 0)); });

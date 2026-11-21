@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<!-- howto.html: short procedures with Infinity ERP screenshots: landed cost, VAT, ageing, manufacturing -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="img/infinity-logo.png">
+  <title>How-to: landed cost, VAT and ageing · Infinity ERP</title>
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    body { background: #f5fbfb; font-family: var(--font-ui); color: var(--font); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+    .hero { background: radial-gradient(900px 420px at 88% -20%, rgba(77, 182, 172, .45), transparent 60%), linear-gradient(150deg, #0a454b 0%, #0f626a 55%, #14808a 100%); color: #fff; }
+    .hero nav { display: flex; align-items: center; gap: 12px; padding: 22px 0; }
+    .hero nav .mark { height: 44px; width: 128px; border-radius: 10px; background: #fff; overflow: hidden; display: grid; place-items: center; }
+    .hero nav .mark img { width: 128px; height: 44px; object-fit: cover; }
+    .hero nav b { font-size: 18px; font-weight: 600; }
+    .hero nav a.back { margin-left: auto; font-size: 13.5px; font-weight: 500; padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #e6f1ef; }
+    .hero nav a.back:hover { background: rgba(255, 255, 255, .24); }
+    .hero-body { padding: 30px 0 46px; }
+    .eyebrow { font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #a7e3dc; }
+    .hero h1 { font-size: 40px; line-height: 1.1; font-weight: 700; margin: 10px 0 10px; }
+    .hero p { color: #d3ebe8; font-size: 16px; max-width: 720px; line-height: 1.6; }
+    .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+    .toc a { font-size: 13.5px; font-weight: 500; padding: 6px 14px; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; }
+    .toc a:hover { background: rgba(255, 255, 255, .26); }
+    main { padding: 34px 0 70px; }
+    section.h { background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--card-shadow); padding: 26px 28px; margin-bottom: 22px; scroll-margin-top: 16px; }
+    section.h > h2 { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+    section.h > h2 .n { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 15px; display: grid; place-items: center; flex: none; }
+    section.h > p.lead { color: var(--subtle); margin: 8px 0 4px 46px; line-height: 1.6; }
+    .task { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border-2); display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 26px; align-items: start; }
+    .task h3 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+    .task ol { counter-reset: s; list-style: none; display: grid; gap: 9px; }
+    .task ol li { position: relative; padding-left: 34px; font-size: 14px; line-height: 1.55; color: var(--subtle); }
+    .task ol li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: #e6f1ef; color: var(--primary); font-size: 12px; font-weight: 600; display: grid; place-items: center; }
+    .task ol li b { color: var(--font); font-weight: 600; }
+    .task code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; color: var(--font); }
+    figure a { display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 4px 14px rgba(8, 47, 50, .08); transition: box-shadow .2s, transform .2s; }
+    figure a:hover { box-shadow: 0 10px 24px rgba(8, 47, 50, .14); transform: translateY(-2px); }
+    figure img { width: 100%; height: auto; display: block; }
+    figcaption { font-size: 12.5px; color: var(--text-soft); margin-top: 7px; }
+    .vals { margin-top: 12px; border: 1px solid var(--border-2); border-radius: 8px; overflow: hidden; }
+    .vals table { font-size: 13px; }
+    .vals th { background: var(--btn-bg); text-align: left; font-weight: 500; color: var(--text-mid); padding: 6px 10px; }
+    .vals td { padding: 6px 10px; border-top: 1px solid var(--border-2); }
+    .vals td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .tip { display: flex; gap: 12px; align-items: flex-start; background: #fff7d3; border: 1px solid #f4e3a3; color: #6b4a00; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.55; margin-bottom: 22px; }
+    .tip svg { width: 20px; height: 20px; flex: none; margin-top: 1px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    footer { padding: 0 0 40px; font-size: 12.5px; color: var(--text-soft); }
+    @media (max-width: 900px) { .task { grid-template-columns: 1fr; } section.h > p.lead { margin-left: 0; } .hero h1 { font-size: 30px; } }
+    @media (max-width: 600px) { .wrap { padding: 0 16px; } section.h { padding: 20px 16px; } .hero nav b { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <nav><span class="mark"><img src="img/infinity-logo.png" alt=""></span><b>Infinity ERP</b><a class="back" href="index.html">← Back to the demo</a></nav>
+      <div class="hero-body">
+        <div class="eyebrow">How-to</div>
+        <h1>Landed cost, VAT and ageing</h1>
+        <p>Short procedures showing where to find each value in Infinity ERP. The screenshots are from the Infy Demo Company in the live system; click any screenshot to open it full size.</p>
+        <div class="toc"><a href="#landed-cost">1 · Landed cost</a><a href="#vat-setup">2 · VAT setup</a><a href="#vat-reports">3 · VAT reports</a><a href="#ageing">4 · Ageing</a><a href="#manufacturing">5 · Manufacturing</a></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="tip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span><b>Tip: invoice numbering.</b> A sales invoice created by hand starts on the default <code>ACC-SINV-</code> naming series. Before saving, change <b>Series</b> to <code>INFY-SINV-.YYYY.-</code> so it follows the company's numbering (INFY-SINV-2026-00038 and so on). The same applies to the other INFY- series.</span></div>
+
+    <!-- 1. Landed cost -->
+    <section class="h" id="landed-cost">
+      <h2><span class="n">1</span>Landed cost: old value, new value and the charges added</h2>
+      <p class="lead">Import charges (freight, insurance, customs duty, clearing) are added to the stock value with a Landed Cost Voucher. You can see the purchase value, the landed cost added, and the unit cost before and after in three places.</p>
+
+      <div class="task">
+        <div><h3>On the Landed Cost Voucher</h3>
+          <ol>
+            <li>Search <b>Landed Cost Voucher</b> in the search bar and open <b>INFY-LCV-2026-00001</b>.</li>
+            <li>The <b>Purchase Receipts</b> table shows the receipt being costed (INFY-PR-2026-00005) and its value.</li>
+            <li>Scroll to <b>Applicable Charges</b>: each charge, its expense account and amount (freight 420.000, insurance 60.000, duty 524.500, clearing 85.000).</li>
+            <li><b>Total Taxes and Charges</b> is the landed cost added: <b>OMR 1,089.500</b>. <b>Distribute Charges Based On = Amount</b> shares it by item value.</li>
+          </ol></div>
+        <figure><a href="howto/a2-landed-cost-voucher-distribution.webp" target="_blank"><img src="howto/a2-landed-cost-voucher-distribution.webp" alt="Landed Cost Voucher with applicable charges" loading="lazy"></a><figcaption>Landed Cost Voucher INFY-LCV-2026-00001: the charges and their total.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>In the Landed Cost Analysis report (one receipt)</h3>
+          <ol>
+            <li>Search <b>Landed Cost Analysis</b> and open the report (or go to <code>/app/query-report/Landed Cost Analysis</code>).</li>
+            <li>Filters: <b>Company</b>, <b>From / To date</b>, and optionally <b>Purchase Receipt</b>, <b>Landed Cost Voucher</b> or <b>Item</b>.</li>
+            <li>Pick Purchase Receipt <b>INFY-PR-2026-00005</b>. The row shows the <b>Purchase Value</b>, <b>Landed Cost Added</b>, <b>New Total Value</b>, <b>Old Unit Cost</b> and <b>New Unit Cost</b>.</li>
+          </ol>
+          <div class="vals"><table><tr><th>DEMO-CMP-15 · 5 units</th><th class="num">OMR</th></tr>
+            <tr><td>Purchase value (USD 26,000 × 0.385)</td><td class="num">10,010.000</td></tr><tr><td>Landed cost added</td><td class="num">1,089.500</td></tr>
+            <tr><td>New total value</td><td class="num">11,099.500</td></tr><tr><td>Unit cost: old → new</td><td class="num">2,002.000 → 2,219.900</td></tr></table></div></div>
+        <figure><a href="howto/b-landed-cost-analysis-one-receipt.webp" target="_blank"><img src="howto/b-landed-cost-analysis-one-receipt.webp" alt="Landed Cost Analysis filtered to one receipt" loading="lazy"></a><figcaption>Landed Cost Analysis filtered to INFY-PR-2026-00005.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>All receipts at once</h3>
+          <ol>
+            <li>Clear the Purchase Receipt filter to list every receipt line that received landed cost.</li>
+            <li>The <b>Landed Cost Added</b> column totals <b>OMR 4,220.030</b> for the period, across the four landed cost vouchers.</li>
+          </ol></div>
+        <figure><a href="howto/b2-landed-cost-analysis-all.webp" target="_blank"><img src="howto/b2-landed-cost-analysis-all.webp" alt="Landed Cost Analysis for all receipts" loading="lazy"></a><figcaption>Landed Cost Analysis without a receipt filter.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>In the Stock Ledger</h3>
+          <ol>
+            <li>Open the <b>Stock Ledger</b> report and filter <b>Warehouse = Stores - INFY</b> and <b>Item = DEMO-CMP-15</b>.</li>
+            <li>The purchase receipt line on 14-11-2026 shows an <b>Incoming Rate of 2,219.900</b>: the unit cost after landed cost.</li>
+            <li>Later issues (stock entries, deliveries) go out at that rate, so the cost of sales includes the import charges.</li>
+          </ol></div>
+        <figure><a href="howto/c-stock-ledger-compressor-valuation.webp" target="_blank"><img src="howto/c-stock-ledger-compressor-valuation.webp" alt="Stock Ledger for the 15 HP compressor" loading="lazy"></a><figcaption>Stock Ledger, DEMO-CMP-15 in Stores - INFY.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 2. VAT setup -->
+    <section class="h" id="vat-setup">
+      <h2><span class="n">2</span>VAT setup: prices, item tax and default templates</h2>
+      <p class="lead">The selling price comes from the item's price list, the VAT rate from the item's tax template, and the VAT row on every document from the default taxes template. Nothing is typed on the invoice.</p>
+
+      <div class="task">
+        <div><h3>Where the sales price is set</h3>
+          <ol>
+            <li>Search <b>Item Price</b> and filter <b>Item Code = DEMO-CMP-15</b>.</li>
+            <li><b>Standard Selling</b> (OMR 3,150.000) fills the rate on quotations, sales orders and sales invoices.</li>
+            <li><b>Standard Buying</b> (OMR 2,400.000) fills the rate on purchase orders and invoices. Edit the rate here to change the price.</li>
+          </ol></div>
+        <figure><a href="howto/e-item-price-list.webp" target="_blank"><img src="howto/e-item-price-list.webp" alt="Item Price list for DEMO-CMP-15" loading="lazy"></a><figcaption>Item Price records for the 15 HP compressor.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>How VAT is tied to the item</h3>
+          <ol>
+            <li>Open the item (<b>Item → DEMO-CMP-15</b>) and go to the <b>Tax</b> tab.</li>
+            <li>Row 1: <b>VAT 5% Sales - INFY</b> with no tax category, used on sales (posts to <b>2320 Output VAT 5%</b>).</li>
+            <li>Row 2: <b>VAT 5% Purchase - INFY</b> with tax category <b>Purchase VAT</b>, used when buying from suppliers in that category (posts to <b>1510 Input VAT 5%</b>).</li>
+          </ol></div>
+        <figure><a href="howto/d-item-tax-table.webp" target="_blank"><img src="howto/d-item-tax-table.webp" alt="Item Tax table on the item" loading="lazy"></a><figcaption>Item → Tax tab: the two item tax templates.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>The Item Tax Template itself</h3>
+          <ol>
+            <li>Search <b>Item Tax Template</b> and open <b>VAT 5% Sales - INFY</b>.</li>
+            <li><b>Tax Rates</b>: account <b>2320 - Output VAT 5%</b> at <b>5</b>%. The purchase template has 1510 - Input VAT 5% at 5%.</li>
+          </ol></div>
+        <figure><a href="howto/g2-item-tax-template-sales.webp" target="_blank"><img src="howto/g2-item-tax-template-sales.webp" alt="Item Tax Template VAT 5% Sales" loading="lazy"></a><figcaption>Item Tax Template VAT 5% Sales - INFY.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>Default sales and purchase templates</h3>
+          <ol>
+            <li>Search <b>Sales Taxes and Charges Template</b> and open <b>Oman VAT 5% - INFY</b>: <b>Default</b> is ticked, one row <b>On Net Total → 2320 Output VAT 5%, rate 5</b>.</li>
+            <li>Search <b>Purchase Taxes and Charges Template</b> and open <b>Oman VAT 5% Input - INFY</b>: Default, <b>On Net Total → 1510 Input VAT 5%, rate 5</b>.</li>
+            <li>Because they are default, every new sales or purchase document gets the VAT row automatically.</li>
+          </ol></div>
+        <figure><a href="howto/f-sales-taxes-template-vat5.webp" target="_blank"><img src="howto/f-sales-taxes-template-vat5.webp" alt="Sales Taxes and Charges Template Oman VAT 5%" loading="lazy"></a><figcaption>Default sales template Oman VAT 5% - INFY.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>VAT on a sales invoice</h3>
+          <ol>
+            <li>Open a sales invoice, for example <b>INFY-SINV-2026-00034</b>, and scroll to <b>Taxes and Charges</b>.</li>
+            <li><b>Sales Taxes and Charges Template = Oman VAT 5%</b> was filled automatically.</li>
+            <li>The row <b>On Net Total · 2320 - Output VAT 5% · 5</b> shows the VAT amount (167.100 on 3,342.000) and the total.</li>
+          </ol></div>
+        <figure><a href="howto/h1-sales-invoice-items.webp" target="_blank"><img src="howto/h1-sales-invoice-items.webp" alt="Sales invoice taxes and charges" loading="lazy"></a><figcaption>Sales invoice INFY-SINV-2026-00034: VAT calculated from the template.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 3. VAT reports -->
+    <section class="h" id="vat-reports">
+      <h2><span class="n">3</span>VAT Reconciliation and VAT Summary by Month</h2>
+      <p class="lead">Two reports check the VAT on every invoice against the VAT ledgers (2320 Output, 1510 Input, 2330 Reverse Charge).</p>
+
+      <div class="task">
+        <div><h3>VAT Reconciliation</h3>
+          <ol>
+            <li>Type <b>VAT Reconciliation</b> in the search bar, or go to <code>/app/query-report/VAT Reconciliation</code>.</li>
+            <li>Filters: <b>Company</b>, <b>From Date</b> and <b>To Date</b>.</li>
+            <li>One row per invoice: month, date, invoice, party, type, taxable amount, <b>Output VAT</b>, <b>Input VAT</b>, <b>RCM VAT</b> and net.</li>
+            <li>The last rows compare the totals with the <b>GL balance</b>; the <b>DIFFERENCE</b> row should be 0.000.</li>
+          </ol>
+          <div class="vals"><table><tr><th>Totals (1 Oct – 30 Nov 2026)</th><th class="num">OMR</th></tr>
+            <tr><td>Output VAT · 2320</td><td class="num">3,399.100</td></tr><tr><td>Input VAT · 1510</td><td class="num">6,710.080</td></tr>
+            <tr><td>Reverse charge · 2330</td><td class="num">2,147.530</td></tr><tr><td>Net VAT (refund position)</td><td class="num">−1,163.450</td></tr><tr><td>Difference vs GL</td><td class="num">0.000</td></tr></table></div></div>
+        <figure><a href="howto/i2-vat-reconciliation-totals-vs-gl.webp" target="_blank"><img src="howto/i2-vat-reconciliation-totals-vs-gl.webp" alt="VAT Reconciliation totals against GL" loading="lazy"></a><figcaption>VAT Reconciliation: totals, GL balance and difference.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>VAT Summary by Month</h3>
+          <ol>
+            <li>Type <b>VAT Summary by Month</b> in the search bar, or go to <code>/app/query-report/VAT Summary by Month</code>.</li>
+            <li>Same filters: <b>Company</b>, <b>From Date</b>, <b>To Date</b>.</li>
+            <li>One row per month: sales taxable, credit notes, output VAT, purchases taxable, input VAT, RCM VAT, net, and the GL columns beside them. Use it for the monthly VAT return.</li>
+          </ol></div>
+        <figure><a href="howto/j-vat-summary-by-month.webp" target="_blank"><img src="howto/j-vat-summary-by-month.webp" alt="VAT Summary by Month" loading="lazy"></a><figcaption>VAT Summary by Month, October and November 2026.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 4. Ageing -->
+    <section class="h" id="ageing">
+      <h2><span class="n">4</span>Ageing: receivables, payables and stock</h2>
+      <p class="lead">Accounts Receivable and Accounts Payable age every open invoice. Set the filters once; the report remembers them.</p>
+
+      <div class="task">
+        <div><h3>Accounts Receivable</h3>
+          <ol>
+            <li>Open <b>Accounting → Accounts Receivable</b>.</li>
+            <li>Set <b>Report Date = 21-11-2026</b>, <b>Ageing Based On = Posting Date</b> and <b>Ageing Range = 30, 40, 120</b>.</li>
+            <li>The chart and the columns <b>Age (Days)</b>, <b>0-30</b>, <b>31-40</b>, <b>41-120</b>, <b>121-Above</b> show each invoice's age.</li>
+            <li>For one line per customer, open <b>Accounts Receivable Summary</b> with the same filters.</li>
+          </ol>
+          <div class="vals"><table><tr><th>Bucket</th><th class="num">OMR</th></tr><tr><td>0-30</td><td class="num">28,369.000</td></tr><tr><td>31-40</td><td class="num">336.000</td></tr><tr><td>41-120</td><td class="num">1,680.000</td></tr><tr><td>121-Above</td><td class="num">0.000</td></tr></table></div></div>
+        <figure><a href="howto/k-accounts-receivable-ageing.webp" target="_blank"><img src="howto/k-accounts-receivable-ageing.webp" alt="Accounts Receivable ageing" loading="lazy"></a><figcaption>Accounts Receivable aged by posting date, ranges 30 / 40 / 120.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>Accounts Payable</h3>
+          <ol>
+            <li>Open <b>Accounting → Accounts Payable</b>.</li>
+            <li>Use the same filters: <b>Ageing Based On = Posting Date</b>, <b>Ageing Range = 30, 40, 120</b>.</li>
+            <li>Buckets: <b>0-30 = 39,086.100</b>, <b>31-40 = 3,780.000</b>, <b>41-120 = 178.000</b>. USD bills appear in OMR.</li>
+          </ol></div>
+        <figure><a href="howto/l-accounts-payable-ageing.webp" target="_blank"><img src="howto/l-accounts-payable-ageing.webp" alt="Accounts Payable ageing" loading="lazy"></a><figcaption>Accounts Payable aged by posting date.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>Stock Ageing</h3>
+          <ol>
+            <li>Open <b>Stock → Stock Ageing</b>.</li>
+            <li>Filters: <b>Company</b>, <b>As On Date</b>, optionally Warehouse, Item or Brand. The default ranges are <b>30, 60, 90</b>.</li>
+            <li>Each item shows its <b>Average Age</b> and the quantity and value in each age band.</li>
+          </ol></div>
+        <figure><a href="howto/m-stock-ageing.webp" target="_blank"><img src="howto/m-stock-ageing.webp" alt="Stock Ageing report" loading="lazy"></a><figcaption>Stock Ageing with ranges 30 / 60 / 90.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 5. Manufacturing -->
+    <section class="h" id="manufacturing">
+      <h2><span class="n">5</span>Manufacturing: BOM and work order</h2>
+      <p class="lead">Manufacturing is in the sidebar between Stock and Support. The compressor package is built from a bill of materials with a work order.</p>
+
+      <div class="task">
+        <div><h3>Bill of materials and its cost</h3>
+          <ol>
+            <li>Open <b>Manufacturing → BOM → BOM-DEMO-PKG-15-001</b>.</li>
+            <li><b>Production Item</b> tab: the item DEMO-PKG-15 and the raw materials with qty and rate.</li>
+            <li><b>Costing</b> tab: <b>Raw Material Cost 3,135.920</b> + <b>Operating Cost 96.000</b> = <b>Total Cost 3,231.920</b> per package. Use <b>Update Cost</b> to refresh from current rates.</li>
+          </ol></div>
+        <figure><a href="howto/n3-bom-costing.webp" target="_blank"><img src="howto/n3-bom-costing.webp" alt="BOM costing tab" loading="lazy"></a><figcaption>BOM-DEMO-PKG-15-001, Costing tab.</figcaption></figure>
+      </div>
+
+      <div class="task">
+        <div><h3>Work order</h3>
+          <ol>
+            <li>Open <b>Manufacturing → Work Order → INFY-WO-2026-00001</b>.</li>
+            <li>It shows the item, BOM, <b>Qty To Manufacture 2</b>, <b>Material Transferred 2</b> and <b>Manufactured Qty 2</b>, and the required items with transferred and consumed quantities.</li>
+            <li>From the work order, <b>Start</b> creates the material transfer and <b>Finish</b> creates the Manufacture stock entry that values the finished goods (OMR 3,363.949 per package).</li>
+          </ol></div>
+        <figure><a href="howto/o1-work-order-completed.webp" target="_blank"><img src="howto/o1-work-order-completed.webp" alt="Completed work order" loading="lazy"></a><figcaption>Work order INFY-WO-2026-00001, completed.</figcaption></figure>
+      </div>
+    </section>
+
+    <footer>Infinity ERP · how-to for the Infy Demo Company demo · <a href="index.html" style="color:var(--primary)">Back to the guided tours</a></footer>
+  </main>
+</body>
+</html>
