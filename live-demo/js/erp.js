@@ -49,28 +49,34 @@ function glGroups(root, sign = 1) {
   return Object.values(groups).sort((a, b) => a.no.localeCompare(b.no));
 }
 const rootTotal = (root, sign = 1) => r3(sum(D.gl_by_account.filter((x) => x.root_type === root), 'bal') * sign);
+/* Account tree helpers for the standard statements */
+const KIDS = {};
+D.accounts_tree_top.forEach((a) => { (KIDS[a.parent_account || ''] = KIDS[a.parent_account || ''] || []).push(a); });
+Object.values(KIDS).forEach((l) => l.sort((x, y) => (x.account_number || '').localeCompare(y.account_number || '')));
+const accTotal = (a) => (a.is_group ? sum(KIDS[a.name] || [], accTotal) : glBal(a.account_number));
+const groupTotal = (no) => r3(accTotal(accByNo[no]));
 const FIN = (() => {
   const income = rootTotal('Income', -1);
   const expense = rootTotal('Expense');
-  const cogs = r3(sum(D.gl_by_account.filter((g) => g.account_number.startsWith('50')), 'bal'));
-  const opIncome = r3(income - glBal('4810') * -1);
+  const cogs = groupTotal('5100');
   return {
-    income, expense, cogs, opIncome, net: r3(income - expense), gross: r3(opIncome - cogs),
+    income, expense, cogs, opIncome: income, net: r3(income - expense), gross: r3(income - cogs),
     assets: rootTotal('Asset'), liabilities: rootTotal('Liability', -1), equity: rootTotal('Equity', -1),
-    receivable: glBal('1410'), payable: r3(-(glBal('2210') + glBal('2270'))), stock: glBal('1640'),
-    cash: r3(glBal('1010') + glBal('1110')),
+    receivable: glBal('1310'), payable: r3(-(glBal('2110') + glBal('2130'))), stock: glBal('1410'),
+    cash: r3(groupTotal('1100') + groupTotal('1200')),
     sales: sum(D.sales_by_month, 'v'), purchases: r3(sum(D.purchase_by_month, 'v')),
   };
 })();
 
 /* ---------- Cell formatting ---------- */
-const LINK_FIELDS = ['customer', 'supplier', 'item_code', 'project', 'party', 'party_name', 'return_against', '_receipt'];
+const LINK_FIELDS = ['customer', 'supplier', 'item_code', 'party', 'party_name', 'return_against', '_receipt', '_claim', 'asset', 'asset_category', 'target_asset'];
 function cell(row, [f, , type], slug) {
   const v = row[f];
   if (type === 'money') return money(v, row.currency || 'OMR');
   if (type === 'omr') return num(v);
   if (type === 'date') return fdate(v);
   if (type === 'month') return v ? `${MONTHS[+v.slice(5, 7) - 1]} ${v.slice(0, 4)}` : '—';
+  if (type === 'cat') return docLink(v);
   if (type === 'pct') return v == null ? '—' : `<div style="display:flex;align-items:center;gap:8px;min-width:110px"><div class="progress" style="flex:1"><i style="width:${v}%"></i></div><span class="small">${Math.round(v)}%</span></div>`;
   if (type === 'einv') return pill(v === 'Failed' ? 'Failed' : v, v === 'Failed' ? 'bad' : v === 'Not sent' ? 'mute' : 'ok');
   if (type === 'clip') return `<span title="${esc(v)}" style="display:inline-block;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${esc(v)}</span>`;
@@ -211,8 +217,9 @@ const WS = {
   stock: { flow: ['Stock and landed cost', [['purchase-receipt', 'Goods come in'], ['landed-cost-voucher', 'Add freight, duty, clearing'], ['stock-entry', 'Move or issue stock'], ['delivery-note', 'Goods go out']]],
     quick: ['item', 'landed-cost-voucher', 'purchase-receipt', 'delivery-note', 'stock-entry', 'report:stock'],
     cards: [['Items', ['item', 'report:stock']], ['Stock Transactions', ['purchase-receipt', 'delivery-note', 'stock-entry']], ['Landed Cost', ['landed-cost-voucher']]] },
-  assets: { flow: ['Buy, use, depreciate', [['purchase-invoice', 'Asset purchased'], ['asset', 'Asset register'], ['journal-entry', 'Monthly depreciation']]],
-    quick: ['asset', 'journal-entry'], cards: [['Assets', ['asset']], ['Accounting', ['journal-entry', 'report:bs']]] },
+  assets: { flow: ['Buy, capitalize, depreciate', [['purchase-invoice', 'Asset or CWIP bill'], ['asset-capitalization', 'Capitalize work in progress'], ['asset', 'Asset register'], ['asset-depreciation-schedule', 'Monthly schedule'], ['journal-entry', 'Depreciation posted']]],
+    quick: ['asset', 'asset-category', 'asset-capitalization', 'asset-depreciation-schedule', 'journal-entry', 'report:bs'],
+    cards: [['Assets', ['asset', 'asset-category']], ['Depreciation', ['asset-depreciation-schedule', 'journal-entry']], ['Capital Work In Progress', ['asset-capitalization', 'purchase-invoice']]] },
   support: { flow: ['Complaint to repair invoice', [['sales-invoice', 'Motor sold'], ['warranty-claim', 'Customer complaint'], ['maintenance-visit', 'Engineer visit'], ['sales-invoice', 'Repair invoice']]],
     quick: ['warranty-claim', 'maintenance-visit', 'sales-invoice'], cards: [['Warranty', ['warranty-claim']], ['Maintenance', ['maintenance-visit']], ['Billing', ['sales-invoice', 'report:ar']]] },
 };
@@ -247,6 +254,7 @@ function listView(slug, query) {
   const actions = `<button class="btn btn-default" data-act="mock">${icon('list')}List View${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="refresh" aria-label="Refresh">${icon('refresh')}</button><button class="btn btn-icon" data-act="mock" aria-label="Menu">${icon('more')}</button><button class="btn btn-primary" data-act="mock">${icon('plus')}Add ${t.one}</button>`;
   return `${crumbs([[WS_LABEL[t.module], wsHref(t.module)], [t.one]])}
   ${pageTitle(t.one, actions, true)}
+  ${slug === 'asset' ? assetRegisterSummary() : ''}
   <div class="layout-card" data-t="list">
     <div class="toolbar" data-t="list-filters">
       <span class="fbox">ID</span>
@@ -268,6 +276,11 @@ function listView(slug, query) {
 
 /* ---------- Form view ---------- */
 const FIELD_LABELS = {
+  location: 'Location', purchase_date: 'Purchase date', purchase_invoice: 'Purchase invoice', purchase_receipt: 'Purchase receipt', is_composite_asset: 'Composite asset (built from CWIP)',
+  calculate_depreciation: 'Calculate depreciation', depreciation_booked: 'Depreciation booked', asset: 'Asset', depreciation_method: 'Depreciation method',
+  total_number_of_depreciations: 'Total number of depreciations', frequency_of_depreciation: 'Frequency (months)', enable_cwip_accounting: 'Enable CWIP accounting',
+  frequency_months: 'Frequency (months)', life_months: 'Useful life (months)', life_years: 'Useful life (years)', capitalization_method: 'Capitalization method',
+  target_asset: 'Target asset', target_asset_name: 'Target asset name', target_item_code: 'Target item', total_value: 'Total value', target_fixed_asset_account: 'Target fixed asset account',
   customer: 'Customer', supplier: 'Supplier', party_name: 'Party', posting_date: 'Posting date', transaction_date: 'Date', due_date: 'Due date',
   delivery_date: 'Delivery date', currency: 'Currency', bill_no: 'Supplier invoice no.', conversion_rate: 'Exchange rate', customer_group: 'Customer group',
   territory: 'Territory', tax_id: 'VAT number', custom_cr_number: 'CR number', supplier_group: 'Supplier group', country: 'Country', default_currency: 'Billing currency',
@@ -287,7 +300,7 @@ const FIELD_LABELS = {
 const HIDE = ['name', 'items', 'status', 'taxes', 'receipts', 'custom_einvoice_status', 'custom_einvoice_uuid', 'custom_cn_reason_code', 'is_return', 'is_debit_note',
   'return_against', 'net_total', 'total_taxes_and_charges', 'grand_total', 'outstanding_amount', 'per_delivered', 'per_billed', 'per_received', 'complaint', 'resolution_details',
   'base_grand_total', 'conversion_rate', 'currency', 'standard_rate', 'valuation_rate', 'value_after_depreciation'];
-const MONEY_F = ['opportunity_amount', 'paid_amount', 'total_debit', 'total_outgoing_value', 'total_incoming_value', 'estimated_costing', 'total_billed_amount',
+const MONEY_F = ['depreciation_booked', 'total_value', 'opportunity_amount', 'paid_amount', 'total_debit', 'total_outgoing_value', 'total_incoming_value', 'estimated_costing', 'total_billed_amount',
   'total_billable_amount', 'gross_pay', 'total_deduction', 'net_pay', 'gross_purchase_amount', 'total_taxes_and_charges'];
 
 function fieldVal(k, v, d) {
@@ -297,11 +310,12 @@ function fieldVal(k, v, d) {
   if (MONEY_F.includes(k)) return omr(v);
   if (k === 'is_stock_item') return v ? 'Yes' : 'No';
   if (k === 'percent_complete') return pct(v);
-  if (['customer', 'supplier', 'party', 'party_name', 'item_code', 'project'].includes(k)) return docLink(v);
+  if (['customer', 'supplier', 'party', 'party_name', 'item_code', 'asset', 'asset_category', 'purchase_invoice', 'purchase_receipt', 'target_asset'].includes(k)) return docLink(v);
+  if (['is_composite_asset', 'calculate_depreciation', 'enable_cwip_accounting'].includes(k)) return v ? 'Yes' : 'No';
   return esc(v);
 }
 function detailsCard(d, extraFields = []) {
-  const keys = Object.keys(d).filter((k) => !HIDE.includes(k) && !k.startsWith('_') && d[k] != null && d[k] !== '');
+  const keys = Object.keys(d).filter((k) => !HIDE.includes(k) && !k.startsWith('_') && d[k] != null && d[k] !== '' && typeof d[k] !== 'object');
   const fields = keys.map((k) => [FIELD_LABELS[k] || k, fieldVal(k, d[k], d)]).concat(extraFields);
   return `<div class="card" data-t="details"><div class="card-h"><h3>Details</h3></div><div class="card-b"><div class="fields">
     ${fields.map(([l, v, cls]) => `<div class="fld ${cls || ''}"><div class="lbl">${l}</div><div class="val">${v}</div></div>`).join('')}</div></div></div>`;
@@ -328,10 +342,10 @@ function totalsCard(slug, d, cur) {
   const selling = ['quotation', 'sales-order', 'delivery-note', 'sales-invoice'].includes(slug);
   const rcm = !selling && cur === 'USD';
   const rows = [['Net total', money(net, cur)]];
-  if (tax) rows.push([`VAT 5% ${selling ? '<span class="small muted">· 2510 Output VAT</span>' : '<span class="small muted">· 1710 Input VAT recoverable</span>'}`, money(tax, cur)]);
+  if (tax) rows.push([`VAT 5% ${selling ? '<span class="small muted">· 2320 Output VAT 5%</span>' : '<span class="small muted">· 1510 Input VAT 5%</span>'}`, money(tax, cur)]);
   else if (!rcm) rows.push(['VAT', '<span class="muted">Not charged</span>']);
   return `<div class="card" data-t="totals"><div class="card-h"><h3>Taxes and totals</h3></div><div class="card-b" style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
-    <div style="flex:1;min-width:240px" class="small muted">${rcm ? `<div class="banner info">${icon('info')}<span><b>Reverse-charge VAT.</b> The foreign supplier charges no VAT. Infinity ERP self-assesses 5% import VAT of <b>${omr(r3(d.base_grand_total * 0.05))}</b> to 2530 OTA Reverse Charge (RCM), so it can be reclaimed in the same return.</span></div>` : selling ? 'VAT is calculated per line at the standard 5% rate and posted to Output VAT. The same figures go into the e-invoice.' : 'Input VAT is posted to 1710 and offsets output VAT in the VAT return.'}</div>
+    <div style="flex:1;min-width:240px" class="small muted">${rcm ? `<div class="banner info">${icon('info')}<span><b>Reverse-charge VAT.</b> The foreign supplier charges no VAT. Infinity ERP self-assesses 5% import VAT of <b>${omr(r3(d.base_grand_total * 0.05))}</b> to 2330 VAT Reverse Charge (RCM) Payable, so it can be reclaimed in the same return.</span></div>` : selling ? 'VAT is calculated per line at the standard 5% rate and posted to Output VAT. The same figures go into the e-invoice.' : 'Input VAT is posted to 1510 Input VAT 5% and offsets output VAT in the VAT return.'}</div>
     <table class="totals">${rows.map(([l, v]) => `<tr><td>${l}</td><td class="num">${v}</td></tr>`).join('')}
       <tr class="gt"><td>Grand total</td><td class="num">${money(d.grand_total, cur)}</td></tr>
       ${cur === 'USD' && d.base_grand_total ? `<tr><td>In company currency (× ${USD_RATE})</td><td class="num"><b>${omr(d.base_grand_total)}</b></td></tr>` : ''}
@@ -404,6 +418,7 @@ function connectionsCard(name, slug) {
   const groups = {};
   const add = (n) => { const s = slugOf(n); if (s && getDoc(s, n)) (groups[s] = groups[s] || new Set()).add(n); };
   linked(name).forEach(add);
+  if (slug === 'asset-category') D.assets.filter((a) => a.asset_category === name).forEach((a) => add(a.name));
   if (slug === 'customer' || slug === 'supplier') {
     for (const t of Object.values(DOCTYPES)) for (const r of t.rows) if ((r.customer || r.supplier || r.party || r.party_name) === name && r[t.id] !== name) add(r[t.id]);
   }
@@ -482,8 +497,8 @@ function lcvSections(d) {
       <div style="display:flex;height:14px;border-radius:999px;overflow:hidden;margin-bottom:8px">${kinds.map(([l, no, c]) => amtOf(no) ? `<i title="${l}" style="width:${(amtOf(no) / d.total_taxes_and_charges) * 100}%;background:${c}"></i>` : '').join('')}</div>
       <div class="legend" style="flex-wrap:wrap;margin-bottom:6px">${kinds.map(([l, no, c]) => amtOf(no) ? `<span><i style="background:${c}"></i>${l} ${num(amtOf(no))}</span>` : '').join('')}</div></div>
     <table class="tbl"><thead><tr><th>Charge</th><th>Charged by</th><th>Source bill</th><th>Expense account</th><th class="num">Amount (OMR)</th></tr></thead>
-    <tbody>${d.taxes.map((t) => { const pinv = (t.description.match(/ACC-PINV-\d{4}-\d{5}/) || [])[0]; const p = pinv && getDoc('purchase-invoice', pinv);
-      return `<tr><td><b>${esc(t.description.replace(/\s*\(ACC-PINV.*\)/, ''))}</b></td><td>${p ? docLink(p.supplier) : '—'}</td><td>${pinv ? docLink(pinv) : '—'}</td><td class="small muted">${esc(t.expense_account.replace(/ - INFY$/, ''))}</td><td class="num">${num(t.amount)}</td></tr>`; }).join('')}</tbody>
+    <tbody>${d.taxes.map((t) => { const pinv = (t.description.match(/INFY-PINV-\d{4}-\d{5}/) || [])[0]; const p = pinv && getDoc('purchase-invoice', pinv);
+      return `<tr><td><b>${esc(t.description.replace(/\s*\(INFY-PINV.*\)/, ''))}</b></td><td>${p ? docLink(p.supplier) : '—'}</td><td>${pinv ? docLink(pinv) : '—'}</td><td class="small muted">${esc(t.expense_account.replace(/ - INFY$/, ''))}</td><td class="num">${num(t.amount)}</td></tr>`; }).join('')}</tbody>
     <tfoot><tr><td colspan="4">Total charges</td><td class="num">${num(d.total_taxes_and_charges)}</td></tr></tfoot></table></div>
   <div class="card" data-t="lcv-impact"><div class="card-h"><h3>Effect on stock cost</h3><span class="sub">Charges shared by item value (${d.distribute_charges_based_on.toLowerCase()})</span></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Cost before (OMR)</th><th class="num">Share of charges</th><th class="num">Landed cost (OMR)</th><th class="num">Per unit before</th><th class="num">Per unit after</th><th class="num">Uplift</th></tr></thead>
@@ -515,25 +530,82 @@ function claimSections(d) {
 function visitSections(d) {
   const claim = linkedOf(d.name, 'warranty-claim')[0];
   const c = claim && getDoc('warranty-claim', claim);
-  const eng = engineerFor(d.name);
-  const emp = eng && D.employees.find((e) => e.employee_name === eng);
   return `<div class="card" data-t="visit-purpose"><div class="card-h"><h3>Visit purpose and work done</h3></div>
-    <table class="tbl"><thead><tr><th>Item</th><th>Against</th><th>Service person</th><th>Work done</th></tr></thead>
-    <tbody><tr><td>${c ? docLink(c.item_code) : '—'}</td><td>${claim ? docLink(claim) : '—'}</td><td>${emp ? `${esc(eng)}<div class="small muted">${emp.designation}</div>` : '<span class="muted">—</span>'}</td><td style="max-width:420px">${c ? esc(c.resolution_details || c.complaint) : '—'}</td></tr></tbody></table></div>
+    <table class="tbl"><thead><tr><th>Item</th><th>Against</th><th>Work done</th></tr></thead>
+    <tbody><tr><td>${c ? docLink(c.item_code) : '—'}</td><td>${claim ? docLink(claim) : '—'}</td><td style="max-width:520px">${c ? esc(c.resolution_details || c.complaint) : '—'}</td></tr></tbody></table></div>
     ${claim ? serviceChain(claim, d.name) : ''}`;
 }
 
+/* Depreciation schedule table (monthly straight-line rows; booked rows carry their journal entry) */
+function scheduleTable(ds) {
+  if (!ds) return '';
+  const rows = ds.depreciation_schedule;
+  const booked = rows.filter((r) => r.journal_entry);
+  return `<div class="card" data-t="asset-schedule"><div class="card-h"><h3>Depreciation schedule</h3><span class="sub">${docLink(ds.name)} · ${esc(ds.depreciation_method)} · ${ds.total_number_of_depreciations} monthly depreciations</span>
+      <span class="right">${pill(`${booked.length} booked`, 'ok')} ${pill(`${ds.total_number_of_depreciations - booked.length} to come`, 'mute')}</span></div>
+    <div class="sched-wrap"><table class="tbl"><thead><tr><th class="idx">#</th><th>Schedule date</th><th class="num">Depreciation (OMR)</th><th class="num">Accumulated (OMR)</th><th>Journal entry</th></tr></thead>
+    <tbody>${rows.map((r, i) => `<tr class="${r.journal_entry ? '' : 'future'}"><td class="idx">${i + 1}</td><td>${fdate(r.schedule_date)}</td><td class="num">${num(r.depreciation_amount)}</td><td class="num">${num(r.accumulated_depreciation_amount)}</td>
+      <td>${r.journal_entry ? `${docLink(r.journal_entry)} ${pill('Booked', 'ok')}` : pill('Not yet booked', 'mute')}</td></tr>`).join('')}</tbody></table></div>
+    <div class="card-b small muted" style="border-top:1px solid var(--border-2)">Showing the first ${rows.length} of ${ds.total_number_of_depreciations} monthly rows from the demo export. The first month is pro-rated from the in-use date; depreciation is booked to 30 Nov 2026.</div></div>`;
+}
+const CAT = Object.fromEntries(D.asset_categories.map((c) => [c.name, c]));
 function assetSections(d) {
-  const jv = linkedOf(d.name, 'journal-entry')[0];
-  const pinv = linkedOf(d.name, 'purchase-invoice')[0];
+  const ds = ADS_OF[d.name];
+  const cat = CAT[d.asset_category];
+  const src = d.purchase_invoice || d.purchase_receipt || linkedOf(d.name, 'asset-capitalization')[0];
+  const fb = (d.finance_books || [])[0] || {};
   return `<div class="card" data-t="asset-dep"><div class="card-h"><h3>Value and depreciation</h3>${pill(d.status)}</div><div class="card-b">
     <div class="grid g4">
-      <div class="kpi card"><div class="lbl">Gross purchase amount</div><div class="val"><small>OMR</small>${num(d.gross_purchase_amount)}</div><div class="foot">${pinv ? `Bought on ${docLink(pinv)}` : 'Recorded directly'}</div></div>
-      <div class="kpi card"><div class="lbl">Depreciation booked</div><div class="val"><small>OMR</small>${num(d._dep)}</div><div class="foot">${jv ? `${docLink(jv)} · ${fdate(getDoc('journal-entry', jv).posting_date)}` : 'No depreciation posted yet'}</div></div>
-      <div class="kpi card"><div class="lbl">Net book value</div><div class="val" style="color:var(--brand-700)"><small>OMR</small>${num(d._nbv)}</div><div class="foot">Gross less depreciation booked</div></div>
-      <div class="kpi card"><div class="lbl">In use since</div><div class="val" style="font-size:18px">${fdate(d.available_for_use_date)}</div><div class="foot">${esc(d.asset_category)}</div></div>
-    </div></div></div>`;
+      <div class="kpi card flat"><div class="lbl">Gross purchase amount</div><div class="val" style="font-size:22px"><small>OMR</small>${num(d.gross_purchase_amount)}</div><div class="foot">${src ? `From ${docLink(src)}` : 'Recorded directly'}</div></div>
+      <div class="kpi card flat"><div class="lbl">Depreciation booked</div><div class="val" style="font-size:22px"><small>OMR</small>${num(d.depreciation_booked)}</div><div class="foot">${fb.total_number_of_booked_depreciations || 0} monthly entries to 30 Nov 2026</div></div>
+      <div class="kpi card flat"><div class="lbl">Net book value</div><div class="val" style="font-size:22px;color:var(--primary)"><small>OMR</small>${num(fb.value_after_depreciation ?? d._nbv)}</div><div class="foot">Gross less depreciation booked</div></div>
+      <div class="kpi card flat"><div class="lbl">Useful life</div><div class="val" style="font-size:22px">${cat ? cat.life_years : '—'} years</div><div class="foot">${docLink(d.asset_category)} · straight line</div></div>
+    </div>
+    ${cat ? `<div class="fields" style="margin-top:16px"><div class="fld"><div class="lbl">Fixed asset account</div><div class="val">${esc(cat._fa)}</div></div><div class="fld"><div class="lbl">Accumulated depreciation account</div><div class="val">${esc(cat._ad)}</div></div><div class="fld"><div class="lbl">Depreciation expense account</div><div class="val">${esc(cat._de)}</div></div></div>` : ''}
+    </div></div>
+  ${scheduleTable(ds)}`;
 }
+/* Register summary above the asset list: cost, depreciation booked and net book value by category */
+function assetRegisterSummary() {
+  const by = {};
+  D.assets.forEach((a) => { const r = (by[a.asset_category] = by[a.asset_category] || { n: 0, cost: 0, dep: 0 }); r.n += 1; r.cost += a.gross_purchase_amount; r.dep += a.depreciation_booked || 0; });
+  const tot = { n: D.assets.length, cost: sum(D.assets, 'gross_purchase_amount'), dep: sum(D.assets, 'depreciation_booked') };
+  return `<div class="card" data-t="asset-summary"><div class="card-h"><h3>Fixed asset register</h3><span class="sub">To 30 Nov 2026</span></div>
+    <table class="tbl"><thead><tr><th>Category</th><th class="num">Life</th><th class="num">Assets</th><th class="num">Cost (OMR)</th><th class="num">Depreciation booked</th><th class="num">Net book value</th></tr></thead>
+    <tbody>${Object.entries(by).sort((a, b) => CAT[b[0]].life_years - CAT[a[0]].life_years).map(([c, r]) => `<tr><td>${docLink(c)}</td><td class="num">${CAT[c].life_years} yrs</td><td class="num">${r.n}</td><td class="num">${num(r.cost)}</td><td class="num">${num(r.dep)}</td><td class="num"><b>${num(r.cost - r.dep)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total</td><td></td><td class="num">${tot.n}</td><td class="num">${num(tot.cost)}</td><td class="num">${num(tot.dep)}</td><td class="num">${num(tot.cost - tot.dep)}</td></tr></tfoot></table></div>`;
+}
+function categorySections(d) {
+  const assets = D.assets.filter((a) => a.asset_category === d.name);
+  return `<div class="card" data-t="cat-accounts"><div class="card-h"><h3>Accounts</h3><span class="sub">Where assets in this category post</span></div><div class="card-b"><div class="fields c2">
+      <div class="fld"><div class="lbl">Fixed asset account</div><div class="val">${esc(d._fa)}</div></div><div class="fld"><div class="lbl">Accumulated depreciation account</div><div class="val">${esc(d._ad)}</div></div>
+      <div class="fld"><div class="lbl">Depreciation expense account</div><div class="val">${esc(d._de)}</div></div><div class="fld"><div class="lbl">Capital work in progress account</div><div class="val">${esc(d._cwip)}</div></div></div></div></div>
+    <div class="card"><div class="card-h"><h3>Assets in this category</h3><span class="sub">${assets.length}</span></div>
+    <table class="tbl"><thead><tr><th>Asset</th><th>Name</th><th class="num">Gross (OMR)</th><th class="num">Monthly depreciation</th><th class="num">Net book value</th></tr></thead>
+    <tbody>${assets.map((a) => { const row = ADS_OF[a.name]?.depreciation_schedule.find((r, i) => i > 0) || {}; return `<tr class="click" data-href="${formHref('asset', a.name)}"><td class="link">${a.name}</td><td>${esc(a.asset_name)}</td><td class="num">${num(a.gross_purchase_amount)}</td><td class="num">${num(row.depreciation_amount)}</td><td class="num">${num(a.finance_books?.[0]?.value_after_depreciation)}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+function capitalizationSections(d) {
+  const a = ASSET_OF[d.target_asset];
+  const cwipTotal = sum(d.cwip_bills, 'base_net_amount');
+  const dr = sum(d.gl, 'debit'), cr = sum(d.gl, 'credit');
+  return `${chainHtml([{ slug: 'purchase-invoice', name: d.cwip_bills[0]?.name, label: 'CWIP bill 1' }, { slug: 'purchase-invoice', name: d.cwip_bills[1]?.name, label: 'CWIP bill 2' }, { slug: 'asset-capitalization', name: d.name }, { slug: 'asset', name: d.target_asset }, { slug: 'asset-depreciation-schedule', name: ADS_OF[d.target_asset]?.name }], d.name)}
+  <div class="card" data-t="cwip-bills"><div class="card-h"><h3>Capital work in progress bills</h3><span class="sub">Booked to 1790 CWIP Account while the work was under way</span></div>
+    <table class="tbl"><thead><tr><th>Purchase invoice</th><th>Supplier</th><th>Supplier bill</th><th>Date</th><th>Work</th><th class="num">Net (OMR)</th></tr></thead>
+    <tbody>${d.cwip_bills.map((b) => `<tr><td>${docLink(b.name)}</td><td>${docLink(b.supplier)}</td><td class="mono">${esc(b.bill_no)}</td><td>${fdate(b.posting_date)}</td><td style="max-width:360px">${esc(b.description)}</td><td class="num"><b>${num(b.base_net_amount)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="5">Total in CWIP</td><td class="num">${num(cwipTotal)}</td></tr></tfoot></table></div>
+  <div class="card" data-t="acap-target"><div class="card-h"><h3>Capitalized into</h3></div><div class="card-b"><div class="fields">
+      <div class="fld"><div class="lbl">Target asset</div><div class="val">${docLink(d.target_asset)} · ${esc(d.target_asset_name)}</div></div>
+      <div class="fld"><div class="lbl">Asset category</div><div class="val">${a ? `${docLink(a.asset_category)} · ${CAT[a.asset_category]?.life_years} years` : '—'}</div></div>
+      <div class="fld"><div class="lbl">Fixed asset account</div><div class="val">${esc(d.target_fixed_asset_account.replace(/ - INFY$/, ''))}</div></div>
+      <div class="fld"><div class="lbl">Capitalized value</div><div class="val">${omr(d.total_value)}</div></div>
+      <div class="fld"><div class="lbl">Capitalization date</div><div class="val">${fdate(d.posting_date)}</div></div>
+      <div class="fld"><div class="lbl">Available for use</div><div class="val">${a ? fdate(a.available_for_use_date) : '—'}</div></div></div></div></div>
+  <div class="card" data-t="acap-gl"><div class="card-h"><h3>CWIP account movements</h3><span class="sub">1790 CWIP Account is cleared to zero</span></div>
+    <table class="tbl"><thead><tr><th>Date</th><th>Voucher</th><th>Account</th><th class="num">Debit (OMR)</th><th class="num">Credit (OMR)</th></tr></thead>
+    <tbody>${d.gl.map((g) => `<tr><td>${fdate(g.posting_date)}</td><td>${esc(g.voucher_type)} ${docLink(g.voucher_no)}</td><td>${esc(g.account.replace(/ - INFY$/, ''))}</td><td class="num">${g.debit ? num(g.debit) : ''}</td><td class="num">${g.credit ? num(g.credit) : ''}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="3">Balance on 1790 CWIP Account</td><td class="num">${num(dr)}</td><td class="num">${num(cr)} → ${num(r3(dr - cr))}</td></tr></tfoot></table></div>`;
+}
+function scheduleSections(d) { return scheduleTable(d); }
 
 function customerSections(d) {
   const vatOk = /^OM\d{10}$/.test(d.tax_id || '');
@@ -565,8 +637,8 @@ function itemSections(d) {
 
 /* Stock entries carry only totals; lines below are derived where the values reconcile exactly */
 const STE_LINES = {
-  'MAT-STE-2026-00001': { note: 'Derived: matches the stock now held in Finished Goods - INFY (1 compressor at 2,400.000 + 10 filters at 18.000 = 2,580.000).', from: 'Stores - INFY', to: 'Finished Goods - INFY', lines: [['DEMO-CMP-15', 1, 2400], ['DEMO-FLT-01', 10, 18]] },
-  'MAT-STE-2026-00003': { note: 'Derived: parts replaced free of charge under warranty claim SER-WRN-2026-00002, booked to 5310 Warranty Repairs (13.000).', from: 'Stores - INFY', to: null, lines: [['DEMO-FAN-01', 1, 7], ['DEMO-BRG-01', 1, 6]] },
+  'INFY-STE-2026-00001': { note: 'Derived: matches the stock now held in Finished Goods - INFY (1 compressor at 2,400.000 + 10 filters at 18.000 = 2,580.000).', from: 'Stores - INFY', to: 'Finished Goods - INFY', lines: [['DEMO-CMP-15', 1, 2400], ['DEMO-FLT-01', 10, 18]] },
+  'INFY-STE-2026-00003': { note: 'Derived: parts replaced free of charge under warranty claim INFY-WRN-2026-00002, booked to 5121 Warranty Repairs and Replacements (13.000).', from: 'Stores - INFY', to: null, lines: [['DEMO-FAN-01', 1, 7], ['DEMO-BRG-01', 1, 6]] },
 };
 function steSections(d) {
   const x = STE_LINES[d.name];
@@ -580,7 +652,7 @@ function steSections(d) {
 function paymentSections(d) {
   const refs = [...linkedOf(d.name, 'sales-invoice'), ...linkedOf(d.name, 'purchase-invoice')];
   const fx = linkedOf(d.name, 'journal-entry')[0];
-  const bank = GL['1110'];
+  const bank = GL['1210'];
   return `<div class="card" data-t="pay-refs"><div class="card-h"><h3>Payment references</h3></div>
     <table class="tbl"><thead><tr><th>Against</th><th>Date</th><th class="num">Invoice total</th><th class="num">Allocated (OMR)</th></tr></thead>
     <tbody>${refs.length ? refs.map((n) => { const s = slugOf(n); const i = getDoc(s, n); return `<tr><td>${docLink(n)}</td><td>${fdate(i.posting_date)}</td><td class="num">${money(i.grand_total, i.currency || 'OMR')}</td><td class="num"><b>${num(d.paid_amount)}</b></td></tr>`; }).join('')
@@ -602,6 +674,9 @@ function formExtras(slug, d) {
   if (slug === 'warranty-claim') parts.push(claimSections(d), serviceChain(d.name, d.name));
   if (slug === 'maintenance-visit') parts.push(visitSections(d));
   if (slug === 'asset') parts.push(assetSections(d));
+  if (slug === 'asset-category') parts.push(categorySections(d));
+  if (slug === 'asset-capitalization') parts.push(capitalizationSections(d));
+  if (slug === 'asset-depreciation-schedule') parts.push(scheduleSections(d));
   if (slug === 'customer') parts.push(customerSections(d));
   if (slug === 'item') parts.push(itemSections(d));
   if (slug === 'stock-entry') parts.push(steSections(d));
@@ -618,19 +693,19 @@ function formView(slug, name) {
   const d = t && getDoc(slug, name);
   if (!d) return notFound();
   const st = statusOf(slug, d);
-  const title = d.customer || d.supplier || d.party || d.employee_name || d.asset_name || d.project_name || d.subject || d.item_name || d.lead_name || name;
+  const title = d.customer || d.supplier || d.party || d.asset_name || d._asset_name || d.target_asset_name || d.item_name || d.lead_name || name;
   const extra = [];
   if (slug === 'maintenance-visit') extra.push(['Engineer', esc(d._engineer)]);
   let banner = '';
   if (slug === 'sales-invoice' && d.is_return) banner = `<div class="banner info" data-t="return-banner">${icon('undo')}<span><b>Credit note</b> against ${docLink(d.return_against)} · reason <b>${d.custom_cn_reason_code}</b>: ${CN_REASON[d.custom_cn_reason_code]}. It reduces what ${esc(d.customer)} owes by ${omr(-d.grand_total)} and is e-invoiced as type 381.</span></div>`;
   if (slug === 'sales-invoice' && d.is_debit_note) banner = `<div class="banner warn" data-t="return-banner">${icon('plus')}<span><b>Debit note</b> against ${docLink(d.return_against)} · reason <b>${d.custom_cn_reason_code}</b>: ${CN_REASON[d.custom_cn_reason_code]}. It adds ${omr(d.grand_total)} to the original invoice and is e-invoiced as type 383.</span></div>`;
-  if (slug === 'customer' && d.name === 'Demo Walk-in Customer') banner = `<div class="banner bad">${icon('alert')}<span><b>No billing address.</b> E-invoice for ${docLink('ACC-SINV-2026-00028')} failed because the buyer address is mandatory.</span></div>`;
+  if (slug === 'customer' && d.name === 'Demo Walk-in Customer') banner = `<div class="banner bad">${icon('alert')}<span><b>No billing address.</b> E-invoice for ${docLink('INFY-SINV-2026-00025')} failed because the buyer address is mandatory.</span></div>`;
   const badVat = slug === 'customer' && d.tax_id && !/^OM\d{10}$/.test(d.tax_id);
-  if (badVat) banner = `<div class="banner bad">${icon('alert')}<span><b>VAT number “${esc(d.tax_id)}” is not valid.</b> Oman VAT numbers are 12 characters: OM followed by 10 digits. E-invoice for ${docLink('ACC-SINV-2026-00029')} failed for this reason.</span></div>`;
+  if (badVat) banner = `<div class="banner bad">${icon('alert')}<span><b>VAT number “${esc(d.tax_id)}” is not valid.</b> Oman VAT numbers are 12 characters: OM followed by 10 digits. E-invoice for ${docLink('INFY-SINV-2026-00026')} failed for this reason.</span></div>`;
   let details = detailsCard(d, extra);
   if (badVat) details = details.replace(`<div class="fld "><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}</div></div>`, `<div class="fld bad"><div class="lbl">VAT number</div><div class="val">${esc(d.tax_id)}<span class="flag">Invalid format</span></div></div>`);
   const tabs = FORM_TABS[slug] || ['Details', 'More Info', 'Connections'];
-  const isSubmitted = !['customer', 'supplier', 'item', 'employee', 'lead'].includes(slug);
+  const isSubmitted = !['customer', 'supplier', 'item', 'lead', 'asset-category'].includes(slug);
   const failed = slug === 'sales-invoice' && EINV_ERR[name];
   const actions = `${isSubmitted ? `<button class="btn btn-default" data-act="mock">View${icon('down', 'caret')}</button><button class="btn btn-primary" data-act="mock">Create${icon('down', 'caret')}</button>` : ''}
     <button class="btn btn-default" data-act="mock">Actions${icon('down', 'caret')}</button><button class="btn btn-icon" data-act="mock" aria-label="Print">${icon('printer')}</button>
@@ -687,13 +762,19 @@ function coaReport() {
   };
   const order = ['Asset', 'Liability', 'Equity', 'Income', 'Expense'];
   kids[''].sort((a, b) => order.indexOf(a.root_type) - order.indexOf(b.root_type)).forEach((r) => walk(r, 0, ''));
-  return `${reportHead('coa', `${D.accounts_tree_top.length} accounts · 4-digit numbering`, `<button class="btn btn-ghost" data-act="tree-all">${icon('layers')}Expand all</button>`)}
+  const map = {};
+  D.coa_mapping.forEach((m) => { map[m.action] = (map[m.action] || 0) + 1; });
+  const extra = D.coa_mapping.filter((m) => m.action.startsWith('new extra'));
+  return `${reportHead('coa', `${D.coa_summary.template} · ${D.coa_summary.accounts} accounts (${D.coa_summary.groups} groups, ${D.coa_summary.leaves} ledgers)`, `<button class="btn btn-ghost" data-act="tree-all">${icon('layers')}Expand all</button>`)}
   <div class="grid g-3-2"><div class="card" data-t="coa-tree"><table class="tbl tree"><thead><tr><th>Account</th><th>Type</th><th class="num">Balance (OMR)</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
-  <div class="stack"><div class="card"><div class="card-h"><h3>How the numbering works</h3></div><div class="card-b" style="line-height:1.7">
-    <div><span class="acno mono" style="color:var(--brand-700);font-weight:700">1xxx</span> Assets · <span class="acno mono" style="color:var(--brand-700);font-weight:700">2xxx</span> Liabilities</div>
-    <div><span class="mono" style="color:var(--brand-700);font-weight:700">3xxx</span> Equity · <span class="mono" style="color:var(--brand-700);font-weight:700">4xxx</span> Revenue</div>
-    <div><span class="mono" style="color:var(--brand-700);font-weight:700">5xxx–9xxx</span> Costs and expenses</div>
-    <p class="small muted" style="margin-top:8px">Each group (e.g. 1600 Inventories) holds its ledgers (e.g. 1640 Inventory - Plant Equipment and Spares). Click a group to open it.</p></div></div>
+  <div class="stack"><div class="card" data-t="coa-info"><div class="card-h"><h3>Standard numbered chart</h3></div><div class="card-b" style="line-height:1.75">
+    ${kids[''].map((r) => `<div><span class="acno" style="margin-right:10px">${r.account_number}</span>${esc(r.account_name)}</div>`).join('')}
+    <p class="small muted" style="margin-top:8px">The standard chart with account codes, so the standard reports (P&amp;L, Balance Sheet, General Ledger, ageing) come out automatically. The client's own codes were added inside it wherever needed.</p></div></div>
+    <div class="card"><div class="card-h"><h3>Client account codes</h3><span class="sub">${D.coa_mapping.length} codes from the client's list</span></div><table class="tbl"><tbody>
+      <tr><td>Merged into a standard account</td><td class="num"><b>${map['merged into standard account'] || 0}</b></td></tr>
+      <tr><td>Merged into an added client account</td><td class="num"><b>${map['merged into extra account'] || 0}</b></td></tr>
+      <tr><td>Added as new client accounts</td><td class="num"><b>${extra.length}</b></td></tr></tbody></table>
+      <div class="card-b small muted">Examples: ${extra.slice(0, 4).map((m) => `${m.new_number} ${esc(m.new_account)}`).join(' · ')}</div></div>
     <div class="card"><div class="card-h"><h3>Accounts by type</h3></div><table class="tbl"><tbody>${order.map((rt) => `<tr><td><b>${rt}</b></td><td class="num">${D.accounts_tree_top.filter((a) => a.root_type === rt && !a.is_group).length} ledgers</td><td class="num">${D.accounts_tree_top.filter((a) => a.root_type === rt && a.is_group && a.parent_account).length} groups</td></tr>`).join('')}</tbody></table></div></div></div>`;
 }
 
@@ -707,48 +788,57 @@ function glReport() {
       <td class="num">${r.bal > 0 ? num(r.bal) : ''}</td><td class="num">${r.bal < 0 ? num(-r.bal) : ''}</td></tr>`).join('')).join('')}</tbody>
     <tfoot><tr><td colspan="2">Total</td><td class="num">${num(dr)}</td><td class="num">${num(cr)}</td></tr></tfoot></table></div></div>
     <div class="stack"><div class="card"><div class="card-b"><div class="banner ok" data-t="gl-check">${icon('checkcircle')}<span><b>Ledger is in balance.</b> Total debits ${omr(dr)} equal total credits ${omr(cr)}.</span></div>
-    <p class="small muted" style="margin-top:12px;line-height:1.6">Every invoice, payment, stock movement, payroll run and depreciation posts here automatically, with no re-keying. ${D.gl_by_account.length} ledgers have activity in the period.</p></div></div>
+    <p class="small muted" style="margin-top:12px;line-height:1.6">Every invoice, payment, stock movement, journal and depreciation entry posts here automatically, with no re-keying. ${D.gl_by_account.length} ledgers have activity in the period.</p></div></div>
     <div class="card"><div class="card-h"><h3>Totals by type</h3></div><table class="tbl"><tbody>${order.map((rt) => { const v = rootTotal(rt); return `<tr><td><b>${rt}</b></td><td class="num">${num(Math.abs(v))} ${v >= 0 ? 'Dr' : 'Cr'}</td></tr>`; }).join('')}</tbody></table></div></div></div>`;
 }
 
-function stmtRows(groups) {
-  return groups.map((g) => `<tr class="sub"><td><span class="mono" style="color:var(--brand-700);margin-right:8px">${g.no}</span>${esc(g.name)}</td><td class="num">${num(g.total)}</td></tr>` +
-    g.rows.map((r) => `<tr><td style="padding-left:40px"><span class="mono muted" style="margin-right:8px">${r.no}</span>${esc(r.name)}</td><td class="num">${num(r.amt)}</td></tr>`).join('')).join('');
+/* Standard statement layout: the numbered group tree with subtotals, as the standard reports show it */
+function stmtTree(no, sign) {
+  const out = [];
+  const walk = (a, depth) => {
+    const v = r3(accTotal(a) * sign);
+    if (!v) return;
+    out.push(`<tr class="${a.is_group ? 'sub' : ''}"><td style="padding-left:${12 + depth * 22}px">${a.account_number ? `<span class="acno" style="margin-right:6px">${a.account_number}</span>` : ''}${esc(a.account_name)}</td><td class="num">${num(v)}</td></tr>`);
+    (KIDS[a.name] || []).forEach((c) => walk(c, depth + 1));
+  };
+  (KIDS[accByNo[no].name] || []).forEach((c) => walk(c, 1));
+  return out.join('');
 }
+const rootRow = (no, cls = 'grand') => `<tr class="${cls}"><td><span class="acno" style="margin-right:6px">${no}</span>${esc(accByNo[no].account_name)}</td><td class="num"></td></tr>`;
 function plReport() {
-  const inc = glGroups('Income', -1), exp = glGroups('Expense');
   const netTone = FIN.net >= 0 ? 'pos' : 'neg';
-  return `${reportHead('pl', 'Income statement, 1 Oct – 20 Nov 2026')}
+  return `${reportHead('pl', 'Profit and Loss Statement, 1 Oct – 30 Nov 2026')}
   <div class="card" data-t="pl-summary"><div class="rep-summary">
     <div class="s"><div class="l">Total Income This Period</div><div class="v">${omr(FIN.income)}</div></div><span class="op">-</span>
     <div class="s"><div class="l">Total Expense This Period</div><div class="v">${omr(FIN.expense)}</div></div><span class="op">=</span>
     <div class="s"><div class="l">${FIN.net >= 0 ? 'Profit' : 'Loss'} This Period</div><div class="v" style="color:${FIN.net >= 0 ? 'var(--green)' : 'var(--red)'}">${omr(FIN.net)}</div></div></div>
     <div class="grid g4" style="padding:0 16px 16px;gap:12px">
-      <div class="card kpi flat"><div class="lbl">Revenue</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.income)}</div></div>
-      <div class="card kpi flat"><div class="lbl">Cost of goods sold</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.cogs)}</div></div>
-      <div class="card kpi flat ok"><div class="lbl">Gross profit</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.gross)}</div><div class="foot">${pct((FIN.gross / FIN.opIncome) * 100)} margin on sales</div></div>
-      <div class="card kpi flat ${FIN.net >= 0 ? 'ok' : 'bad'}"><div class="lbl">${FIN.net >= 0 ? 'Net profit' : 'Net loss'}</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.net)}</div><div class="foot">After salaries, rent and depreciation</div></div>
+      <div class="card kpi flat"><div class="lbl">Income (4000)</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.income)}</div></div>
+      <div class="card kpi flat"><div class="lbl">Direct expenses (5100)</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.cogs)}</div></div>
+      <div class="card kpi flat ok"><div class="lbl">Gross profit</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.gross)}</div><div class="foot">${pct((FIN.gross / FIN.income) * 100)} of income</div></div>
+      <div class="card kpi flat ${FIN.net >= 0 ? 'ok' : 'bad'}"><div class="lbl">${FIN.net >= 0 ? 'Net profit' : 'Net loss'}</div><div class="val" style="font-size:22px"><small>OMR</small>${num(FIN.net)}</div><div class="foot">After indirect expenses (5200)</div></div>
     </div></div>
-  <div class="grid g-3-2"><div class="card" data-t="pl-table"><div class="tbl-wrap"><table class="tbl dt"><thead><tr><th>Account</th><th class="num">1 Oct – 20 Nov 2026</th></tr></thead><tbody>
-    <tr class="grand"><td>Income</td><td class="num">${num(FIN.income)}</td></tr>${stmtRows(inc)}
-    <tr class="grand"><td>Expenses</td><td class="num">${num(FIN.expense)}</td></tr>${stmtRows(exp)}
-    <tr class="grand" data-t="pl-net"><td>${FIN.net >= 0 ? 'Net profit' : 'Net loss'} for the period</td><td class="num ${netTone}">${num(FIN.net)}</td></tr></tbody></table></div></div>
-    <div class="card"><div class="card-h"><h3>What the numbers say</h3></div><div class="card-b" style="line-height:1.6;color:var(--subtle)">Trading is profitable at gross level. In these first two months the overheads (salaries ${omr(sum(D.salary_slips, 'gross_pay'))}, office rent ${omr(glBal('7210'))}, depreciation) are larger than the gross profit, which is typical for a new company building its customer base.</div></div></div>`;
+  <div class="grid g-3-2"><div class="card" data-t="pl-table"><div class="tbl-wrap"><table class="tbl dt"><thead><tr><th>Account</th><th class="num">1 Oct – 30 Nov 2026</th></tr></thead><tbody>
+    ${rootRow('4000')}${stmtTree('4000', -1)}<tr class="grand"><td>Total Income (Credit)</td><td class="num">${num(FIN.income)}</td></tr>
+    ${rootRow('5000')}${stmtTree('5000', 1)}<tr class="grand"><td>Total Expense (Debit)</td><td class="num">${num(FIN.expense)}</td></tr>
+    <tr class="grand" data-t="pl-net"><td>${FIN.net >= 0 ? 'Profit' : 'Loss'} for the period</td><td class="num ${netTone}">${num(FIN.net)}</td></tr></tbody></table></div></div>
+    <div class="card"><div class="card-h"><h3>What the numbers say</h3></div><div class="card-b" style="line-height:1.6;color:var(--subtle)">Trading is profitable at gross level. In these first two months the indirect costs (salaries ${omr(glBal('5213'))}, office rent ${omr(glBal('5209'))}, depreciation ${omr(sum(D.gl_by_account.filter((g) => g.account_number.startsWith('523')), 'bal'))}) are larger than the gross profit, which is typical for a new company building its customer base.</div></div></div>`;
 }
 
 function bsReport() {
-  const a = glGroups('Asset'), l = glGroups('Liability', -1), e = glGroups('Equity', -1);
-  const le = r3(FIN.liabilities + FIN.equity + FIN.net);
-  return `${reportHead('bs', `As at ${fdate(AS_OF)}`)}
-  <div class="grid g2" data-t="bs-table">
-    <div class="card"><div class="card-h"><h3>Assets</h3></div><table class="tbl"><tbody>${stmtRows(a)}<tr class="grand"><td>Total assets</td><td class="num">${num(FIN.assets)}</td></tr></tbody></table></div>
-    <div class="card"><div class="card-h"><h3>Liabilities and equity</h3></div><table class="tbl"><tbody>
-      <tr class="grand"><td>Liabilities</td><td class="num">${num(FIN.liabilities)}</td></tr>${stmtRows(l)}
-      <tr class="grand"><td>Equity</td><td class="num">${num(r3(FIN.equity + FIN.net))}</td></tr>${stmtRows(e)}
-      <tr class="sub"><td>Profit / (loss) for the period</td><td class="num ${FIN.net < 0 ? 'neg' : ''}">${num(FIN.net)}</td></tr>
-      <tr class="grand"><td>Total liabilities and equity</td><td class="num">${num(le)}</td></tr></tbody></table></div>
-  </div>
-  <div class="banner ok" data-t="bs-check">${icon('checkcircle')}<span><b>Balanced.</b> Total assets ${omr(FIN.assets)} = liabilities ${omr(FIN.liabilities)} + equity ${omr(r3(FIN.equity + FIN.net))}.</span></div>`;
+  const eq = r3(FIN.equity + FIN.net);
+  return `${reportHead('bs', 'Balance Sheet as at 30 Nov 2026')}
+  <div class="grid g-3-2"><div class="card" data-t="bs-table"><div class="tbl-wrap"><table class="tbl dt"><thead><tr><th>Account</th><th class="num">30 Nov 2026</th></tr></thead><tbody>
+    ${rootRow('1000')}${stmtTree('1000', 1)}<tr class="grand"><td>Total Asset (Debit)</td><td class="num">${num(FIN.assets)}</td></tr>
+    ${rootRow('2000')}${stmtTree('2000', -1)}<tr class="grand"><td>Total Liability (Credit)</td><td class="num">${num(FIN.liabilities)}</td></tr>
+    ${rootRow('3000')}${stmtTree('3000', -1)}<tr class="grand"><td>Total Equity (Credit)</td><td class="num">${num(FIN.equity)}</td></tr>
+    <tr class="sub"><td>Provisional Profit / Loss (Credit)</td><td class="num ${FIN.net < 0 ? 'neg' : ''}">${num(FIN.net)}</td></tr>
+    <tr class="grand"><td>Total (Credit)</td><td class="num">${num(r3(FIN.liabilities + eq))}</td></tr></tbody></table></div></div>
+    <div class="stack"><div class="banner ok" data-t="bs-check">${icon('checkcircle')}<span><b>Balanced.</b> Total assets ${omr(FIN.assets)} = liabilities ${omr(FIN.liabilities)} + equity ${omr(FIN.equity)} ${FIN.net < 0 ? '−' : '+'} ${num(Math.abs(FIN.net))} ${FIN.net < 0 ? 'loss' : 'profit'} for the period.</span></div>
+    <div class="card"><div class="card-h"><h3>Fixed assets at a glance</h3></div><table class="tbl"><tbody>
+      <tr><td>Cost (1700 group, gross)</td><td class="num">${num(sum(D.gl_by_account.filter((g) => g.account_number.startsWith('17') && !g.account_number.startsWith('178')), 'bal'))}</td></tr>
+      <tr><td>Accumulated depreciation</td><td class="num">${num(sum(D.gl_by_account.filter((g) => g.account_number.startsWith('178')), 'bal'))}</td></tr>
+      <tr class="grand"><td>Net book value</td><td class="num">${num(groupTotal('1700'))}</td></tr></tbody></table></div></div></div>`;
 }
 
 function agingBucket(due) {
@@ -762,19 +852,17 @@ function agingBucket(due) {
 const BUCKETS = ['Not yet due', '1–30 days', '31–60 days', '61–90 days', '90+ days'];
 function arReport() {
   const open = D.sales_invoices.filter((s) => s.outstanding_amount);
-  const unalloc = D.payments.filter((p) => p.payment_type === 'Receive' && !linked(p.name).length);
   const by = {};
-  open.forEach((s) => { const r = (by[s.customer] = by[s.customer] || [0, 0, 0, 0, 0, 0]); r[agingBucket(s.due_date)] += s.outstanding_amount; });
-  unalloc.forEach((p) => { const r = (by[p.party] = by[p.party] || [0, 0, 0, 0, 0, 0]); r[5] -= p.paid_amount; });
-  const tot = [0, 0, 0, 0, 0, 0];
+  open.forEach((s) => { const r = (by[s.customer] = by[s.customer] || [0, 0, 0, 0, 0]); r[agingBucket(s.due_date)] += s.outstanding_amount; });
+  const tot = [0, 0, 0, 0, 0];
   Object.values(by).forEach((r) => r.forEach((v, i) => { tot[i] += v; }));
-  const grand = sum(tot, (x) => x);
+  const grand = r3(sum(tot, (x) => x));
   return `${reportHead('ar', `Amounts owed by customers as at ${fdate(AS_OF)}, by due date`)}
-  <div class="grid g4" data-t="ar-kpis">${[['Total receivable', grand, ''], ['Not yet due', tot[0], 'ok'], ['Overdue', tot[1] + tot[2] + tot[3] + tot[4], 'bad'], ['Unallocated receipts', tot[5], 'warn']].map(([l, v, c]) => `<div class="card kpi ${c}"><div class="lbl">${l}</div><div class="val"><small>OMR</small>${num(v)}</div></div>`).join('')}</div>
-  <div class="card" data-t="ar-table"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Customer</th>${BUCKETS.map((b) => `<th class="num">${b}</th>`).join('')}<th class="num">Unallocated</th><th class="num">Total (OMR)</th></tr></thead>
+  <div class="grid g3" data-t="ar-kpis">${[['Total receivable', grand, ''], ['Not yet due', tot[0], 'ok'], ['Overdue', tot[1] + tot[2] + tot[3] + tot[4], 'bad']].map(([l, v, c]) => `<div class="card kpi flat ${c}"><div class="lbl">${l}</div><div class="val" style="font-size:22px"><small>OMR</small>${num(v)}</div></div>`).join('')}</div>
+  <div class="card" data-t="ar-table"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Customer</th>${BUCKETS.map((b) => `<th class="num">${b}</th>`).join('')}<th class="num">Total (OMR)</th></tr></thead>
     <tbody>${Object.entries(by).sort((a, b) => sum(b[1], (x) => x) - sum(a[1], (x) => x)).map(([c, r]) => `<tr><td>${docLink(c)}</td>${r.map((v) => `<td class="num ${v < 0 ? 'neg' : ''}">${v ? num(v) : '<span class="muted">—</span>'}</td>`).join('')}<td class="num"><b>${num(sum(r, (x) => x))}</b></td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total</td>${tot.map((v) => `<td class="num">${num(v)}</td>`).join('')}<td class="num">${num(grand)}</td></tr></tfoot></table></div>
-    <div class="card-b small muted" style="border-top:1px solid var(--line-2)">Total agrees with ledger 1410 Trade Receivables (${omr(FIN.receivable)}). Credit notes appear as negative amounts; ${unalloc.map((p) => docLink(p.name)).join(', ')} is a receipt not yet matched to an invoice.</div></div>
+    <div class="card-b small muted" style="border-top:1px solid var(--border-2)">Total agrees with ledger 1310 Debtors (${omr(FIN.receivable)}). Credit notes appear as negative amounts.</div></div>
   <div class="card"><div class="card-h"><h3>Open invoices</h3><span class="sub">${open.length} documents</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Due</th><th class="num">Total</th><th class="num">Outstanding</th><th>Status</th></tr></thead>
     <tbody>${open.sort((a, b) => a.due_date.localeCompare(b.due_date)).map((s) => `<tr class="click" data-href="${formHref('sales-invoice', s.name)}"><td class="link">${s.name}</td><td>${esc(s.customer)}</td><td>${fdate(s.posting_date)}</td><td>${fdate(s.due_date)}</td><td class="num">${num(s.grand_total)}</td><td class="num ${s.outstanding_amount < 0 ? 'neg' : ''}"><b>${num(s.outstanding_amount)}</b></td><td>${pill(s.status)}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
@@ -790,7 +878,7 @@ function apReport() {
     <tbody>${open.sort((a, b) => omrOf(b) - omrOf(a)).map((p) => `<tr class="click" data-href="${formHref('purchase-invoice', p.name)}"><td class="link">${p.name}</td><td>${esc(p.supplier)}</td><td class="mono">${esc(p.bill_no)}</td><td>${fdate(p.posting_date)}</td>
       <td class="num">${money(p.outstanding_amount, p.currency)}</td><td class="num">${p.currency === 'USD' ? p.conversion_rate : '1'}</td><td class="num ${p.outstanding_amount < 0 ? 'neg' : ''}"><b>${num(omrOf(p))}</b></td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="6">Total</td><td class="num">${num(total)}</td></tr></tfoot></table></div>
-    <div class="card-b small muted" style="border-top:1px solid var(--line-2)">Agrees with ledgers 2210 Trade Payables - Local (${omr(-glBal('2210'))}) and 2270 Trade Payables - Foreign (USD) (${omr(-glBal('2270'))}).</div></div>`;
+    <div class="card-b small muted" style="border-top:1px solid var(--line-2)">Agrees with ledgers 2110 Creditors (${omr(-glBal('2110'))}) and 2130 Creditors - Foreign Suppliers (USD) (${omr(-glBal('2130'))}).</div></div>`;
 }
 
 function stockReport() {
@@ -803,7 +891,7 @@ function stockReport() {
     <tbody>${rows.map((r) => `<tr class="click" data-href="${formHref('item', r.item_code)}" ${r.item_code === 'DEMO-CMP-15' && r.warehouse.startsWith('Stores') ? 'data-t="stock-cmp15"' : ''}><td><span class="link" style="color:var(--brand-700);font-weight:600">${r.item_code}</span><div class="small muted">${esc(r.item_name)}</div></td><td class="small">${r.warehouse}</td><td class="num">${r.actual_qty}</td><td class="num">${num(r.stock_value / r.actual_qty)}</td><td class="num"><b>${num(r.stock_value)}</b></td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="4">Total stock value</td><td class="num">${num(total)}</td></tr></tfoot></table></div></div>
     <div class="stack"><div class="card"><div class="card-h"><h3>Value by item group</h3></div><div class="card-b bar-list">${Object.entries(byGroup).sort((a, b) => b[1] - a[1]).map(([g, v]) => `<div class="row"><div><div class="name">${g}</div><div class="bar"><i style="width:${(v / total) * 100}%"></i></div></div><div class="num" style="font-weight:700">${num(v)}</div></div>`).join('')}</div></div>
-    <div class="banner ok">${icon('checkcircle')}<span>Stock value ${omr(total)} agrees with ledger 1640 Inventory. Imported items carry their freight, duty and clearing (landed cost).</span></div></div></div>`;
+    <div class="banner ok">${icon('checkcircle')}<span>Stock value ${omr(total)} agrees with ledger 1410 Stock In Hand. Imported items carry their freight, duty and clearing (landed cost).</span></div></div></div>`;
 }
 
 function reportView(k) {

@@ -102,9 +102,15 @@ const DOCTYPES = {
   'warranty-claim': { src: 'warranty_claims', label: 'Warranty Claims', one: 'Warranty Claim', module: 'support', icon: 'shield',
     cols: [['customer', 'Customer'], ['item_code', 'Item'], ['complaint_date', 'Reported', 'date'], ['complaint', 'Complaint', 'clip']] },
   'maintenance-visit': { src: 'maintenance_visits', label: 'Maintenance Visits', one: 'Maintenance Visit', module: 'support', icon: 'wrench', status: (r) => r.completion_status,
-    cols: [['customer', 'Customer'], ['mntc_date', 'Visit date', 'date'], ['maintenance_type', 'Type'], ['_engineer', 'Engineer']] },
+    cols: [['customer', 'Customer'], ['mntc_date', 'Visit date', 'date'], ['maintenance_type', 'Type'], ['_claim', 'Warranty claim']] },
   asset: { src: 'assets', label: 'Assets', one: 'Asset', module: 'assets', icon: 'building',
-    cols: [['asset_name', 'Asset'], ['asset_category', 'Category'], ['available_for_use_date', 'In use from', 'date'], ['gross_purchase_amount', 'Gross value', 'omr'], ['_dep', 'Depreciation booked', 'omr'], ['_nbv', 'Net book value', 'omr']] },
+    cols: [['asset_name', 'Asset'], ['asset_category', 'Category', 'cat'], ['available_for_use_date', 'In use from', 'date'], ['gross_purchase_amount', 'Gross value', 'omr'], ['depreciation_booked', 'Depreciation booked', 'omr'], ['_nbv', 'Net book value', 'omr']] },
+  'asset-category': { src: 'asset_categories', label: 'Asset Categories', one: 'Asset Category', module: 'assets', icon: 'layers', status: (r) => `${r.life_years} years`,
+    cols: [['life_years', 'Useful life (years)', 'n1'], ['life_months', 'Months'], ['_fa', 'Fixed asset account'], ['_de', 'Depreciation expense account']] },
+  'asset-depreciation-schedule': { src: 'asset_depreciation_schedules', label: 'Asset Depreciation Schedules', one: 'Asset Depreciation Schedule', module: 'assets', icon: 'calendar',
+    cols: [['asset', 'Asset'], ['_asset_name', 'Asset name'], ['depreciation_method', 'Method'], ['total_number_of_depreciations', 'Depreciations (months)'], ['_booked', 'Booked to date', 'omr']] },
+  'asset-capitalization': { src: 'asset_capitalizations', label: 'Asset Capitalizations', one: 'Asset Capitalization', module: 'assets', icon: 'box', status: () => 'Submitted',
+    cols: [['target_asset_name', 'Asset'], ['posting_date', 'Date', 'date'], ['capitalization_method', 'Method'], ['total_value', 'Capitalized value', 'omr']] },
 };
 for (const [slug, t] of Object.entries(DOCTYPES)) { t.slug = slug; t.id = t.id || 'name'; t.rows = D[t.src]; }
 
@@ -119,18 +125,19 @@ const SUPPLIER = Object.fromEntries(D.suppliers.map((s) => [s.name, s]));
 const EINV_ERR = window.EINV_ERRORS || {};
 
 /* Guess the doctype of a document name from its naming series */
-const SERIES = [['ACC-SINV', 'sales-invoice'], ['ACC-PINV', 'purchase-invoice'], ['ACC-PAY', 'payment-entry'], ['ACC-JV', 'journal-entry'],
-  ['ACC-ASS', 'asset'], ['SAL-QTN', 'quotation'], ['SAL-ORD', 'sales-order'], ['MAT-DN', 'delivery-note'], ['MAT-MR', 'material-request'],
-  ['PUR-RFQ', 'rfq'], ['PUR-SQTN', 'supplier-quotation'], ['PUR-ORD', 'purchase-order'], ['MAT-PRE', 'purchase-receipt'],
-  ['MAT-LCV', 'landed-cost-voucher'], ['MAT-STE', 'stock-entry'], ['SER-WRN', 'warranty-claim'], ['MAT-MVS', 'maintenance-visit'],
-  ['PROJ-', 'project'], ['TASK-', 'task'], ['TS-', 'timesheet'], ['HR-EMP', 'employee'], ['HR-LAP', 'leave-application'],
-  ['Sal Slip', 'salary-slip'], ['CRM-LEAD', 'lead'], ['CRM-OPP', 'opportunity']];
+const SERIES = [['INFY-SINV-', 'sales-invoice'], ['INFY-PINV-', 'purchase-invoice'], ['INFY-PAY-', 'payment-entry'], ['INFY-JV-', 'journal-entry'],
+  ['INFY-AST-', 'asset'], ['INFY-ADS-', 'asset-depreciation-schedule'], ['INFY-ACAP-', 'asset-capitalization'], ['INFY-QTN-', 'quotation'], ['INFY-SO-', 'sales-order'],
+  ['INFY-DN-', 'delivery-note'], ['INFY-MR-', 'material-request'], ['INFY-RFQ-', 'rfq'], ['INFY-SQTN-', 'supplier-quotation'], ['INFY-PO-', 'purchase-order'],
+  ['INFY-PR-', 'purchase-receipt'], ['INFY-LCV-', 'landed-cost-voucher'], ['INFY-STE-', 'stock-entry'], ['INFY-WRN-', 'warranty-claim'], ['INFY-MV-', 'maintenance-visit'],
+  ['INFY-LEAD-', 'lead'], ['INFY-OPP-', 'opportunity'],
+];
 function slugOf(name) {
   const s = SERIES.find(([p]) => String(name).startsWith(p));
   if (s) return s[1];
   if (CUSTOMER[name]) return 'customer';
   if (SUPPLIER[name]) return 'supplier';
   if (ITEM[name]) return 'item';
+  if (D.asset_categories.some((c) => c.name === name)) return 'asset-category';
   return null;
 }
 const formHref = (slug, name) => `#/erp/form/${slug}/${encodeURIComponent(name)}`;
@@ -141,60 +148,60 @@ function docLink(name, label) {
 }
 
 /* ---------- Document links ----------
-   The demo extract has no explicit link fields, so the chains below are
-   derived by matching party, date and amount (e.g. QTN 7,560 -> SO 7,560
-   -> DN 7,560 -> SINV 7,560 -> payment 7,560). */
-const S = (n) => `ACC-SINV-2026-000${n}`, P = (n) => `ACC-PINV-2026-000${n}`, PAY = (n) => `ACC-PAY-2026-000${n}`;
+   The demo extract has few explicit link fields, so the sales/buying chains below
+   are derived by matching party, date and amount (e.g. QTN 7,560 -> SO 7,560
+   -> DN 7,560 -> SINV 7,560 -> payment 7,560). Asset links come from the data. */
+const S = (n) => `INFY-SINV-2026-000${n}`, P = (n) => `INFY-PINV-2026-000${n}`, PAY = (n) => `INFY-PAY-2026-000${n}`;
+const PO = (n) => `INFY-PO-2026-0000${n}`, PR = (n) => `INFY-PR-2026-000${n}`, SO = (n) => `INFY-SO-2026-0000${n}`, DN = (n) => `INFY-DN-2026-0000${n}`;
+const WRN = (n) => `INFY-WRN-2026-0000${n}`, MV = (n) => `INFY-MV-2026-0000${n}`;
 const EDGE_LIST = [
   // selling
-  ['CRM-LEAD-2026-00003', 'CRM-OPP-2026-00001'], ['CRM-LEAD-2026-00004', 'CRM-OPP-2026-00003'], ['CRM-OPP-2026-00003', 'SAL-QTN-2026-00004'],
-  ['CRM-OPP-2026-00002', 'SAL-QTN-2026-00003'],
-  ['SAL-QTN-2026-00001', 'SAL-ORD-2026-00001'], ['SAL-ORD-2026-00001', 'MAT-DN-2026-00001'], ['MAT-DN-2026-00001', S('03')], [S('03'), PAY('02')],
-  ['SAL-QTN-2026-00002', 'SAL-ORD-2026-00005'], ['SAL-ORD-2026-00005', 'MAT-DN-2026-00005'], ['MAT-DN-2026-00005', S(10)], [S(10), PAY('06')],
-  ['SAL-ORD-2026-00002', 'MAT-DN-2026-00002'], ['MAT-DN-2026-00002', S('04')], [S('04'), PAY('03')],
-  ['SAL-ORD-2026-00003', 'MAT-DN-2026-00004'], ['MAT-DN-2026-00004', S('09')],
-  ['SAL-ORD-2026-00004', 'MAT-DN-2026-00003'],
-  ['SAL-ORD-2026-00006', 'MAT-DN-2026-00006'], ['MAT-DN-2026-00006', S(16)], [S(16), PAY(26)],
-  [S('05'), PAY('05')], [S(13), PAY(10)], [S(15), PAY(25)], [S(17), PAY(29)], [S(18), PAY(30)], [S(19), PAY(27)], [S(21), PAY(28)],
-  // project billing
-  ['PROJ-0001', S(12)], ...['01', '02', '03', '04'].map((n) => ['PROJ-0001', `TS-2026-000${n}`]), ...['01', '02', '03', '04'].map((n) => [`TS-2026-000${n}`, S(12)]),
-  ['TASK-2026-00001', 'PROJ-0001'], ['TASK-2026-00002', 'PROJ-0001'], ['TASK-2026-00003', 'PROJ-0001'],
+  ['INFY-LEAD-2026-00003', 'INFY-OPP-2026-00001'], ['INFY-LEAD-2026-00004', 'INFY-OPP-2026-00003'], ['INFY-OPP-2026-00003', 'INFY-QTN-2026-00004'],
+  ['INFY-OPP-2026-00002', 'INFY-QTN-2026-00003'],
+  ['INFY-QTN-2026-00001', SO(1)], [SO(1), DN(1)], [DN(1), S('01')], [S('01'), PAY('02')],
+  ['INFY-QTN-2026-00002', SO(5)], [SO(5), DN(5)], [DN(5), S('08')], [S('08'), PAY('06')],
+  [SO(2), DN(2)], [DN(2), S('02')], [S('02'), PAY('03')],
+  [SO(3), DN(4)], [DN(4), S('07')],
+  [SO(4), DN(3)],
+  [SO(6), DN(6)], [DN(6), S(14)], [S(14), PAY(26)],
+  [S('03'), PAY('05')], [S(11), PAY(14)], [S(13), PAY(25)], [S(15), PAY(34)], [S(16), PAY(35)], [S(17), PAY(27)], [S(19), PAY(28)],
   // service and repair
-  [S(13), 'SER-WRN-2026-00001'], ['SER-WRN-2026-00001', 'MAT-MVS-2026-00002'], ['MAT-MVS-2026-00002', 'TS-2026-00005'], ['TS-2026-00005', S(14)], ['SER-WRN-2026-00001', S(14)],
-  [S(15), 'SER-WRN-2026-00002'], ['SER-WRN-2026-00002', 'MAT-MVS-2026-00003'], ['SER-WRN-2026-00002', 'MAT-MVS-2026-00001'], ['MAT-MVS-2026-00003', 'TS-2026-00006'], ['SER-WRN-2026-00002', 'MAT-STE-2026-00003'],
-  [S(16), 'SER-WRN-2026-00003'], ['SER-WRN-2026-00003', 'MAT-MVS-2026-00004'], ['MAT-MVS-2026-00004', 'TS-2026-00007'], ['TS-2026-00007', S(21)], ['SER-WRN-2026-00003', S(21)],
-  [S(17), 'SER-WRN-2026-00004'], ['SER-WRN-2026-00004', 'MAT-MVS-2026-00005'], ['MAT-MVS-2026-00005', 'TS-2026-00008'], ['TS-2026-00008', S(22)], ['SER-WRN-2026-00004', S(22)],
-  [S(18), 'SER-WRN-2026-00005'],
+  [S(11), WRN(1)], [WRN(1), MV(2)], [WRN(1), S(12)], [MV(2), S(12)],
+  [S(13), WRN(2)], [WRN(2), MV(3)], [WRN(2), MV(1)], [WRN(2), 'INFY-STE-2026-00003'],
+  [S(14), WRN(3)], [WRN(3), MV(4)], [WRN(3), S(19)], [MV(4), S(19)],
+  [S(15), WRN(4)], [WRN(4), MV(5)], [WRN(4), S(20)], [MV(5), S(20)],
+  [S(16), WRN(5)],
   // buying (local)
-  ['MAT-MR-2026-00004', 'PUR-RFQ-2026-00002'], ['PUR-RFQ-2026-00002', 'PUR-SQTN-2026-00002'], ['PUR-RFQ-2026-00002', 'PUR-SQTN-2026-00003'],
-  ['PUR-SQTN-2026-00003', 'PUR-ORD-2026-00006'], ['PUR-ORD-2026-00006', 'MAT-PRE-2026-00004'], ['MAT-PRE-2026-00004', P('05')],
-  ['PUR-ORD-2026-00003', 'MAT-PRE-2026-00002'], ['MAT-PRE-2026-00002', P('01')], [P('01'), PAY('01')],
-  ['PUR-ORD-2026-00004', 'MAT-PRE-2026-00003'], ['MAT-PRE-2026-00003', P('02')], ['MAT-PRE-2026-00003', 'MAT-PRE-2026-00005'], ['MAT-PRE-2026-00005', P('06')], [P('06'), P('02')],
+  ['INFY-MR-2026-00001', 'INFY-RFQ-2026-00001'], ['INFY-RFQ-2026-00001', 'INFY-SQTN-2026-00001'], ['INFY-RFQ-2026-00001', 'INFY-SQTN-2026-00002'],
+  ['INFY-SQTN-2026-00002', PO(4)], [PO(4), PR('03')], [PR('03'), P('05')],
+  [PO(1), PR('01')], [PR('01'), P('01')], [P('01'), PAY('01')],
+  [PO(2), PR('02')], [PR('02'), P('02')], [PR('02'), PR('04')], [PR('04'), P('06')], [P('06'), P('02')],
   [P('04'), PAY('04')], [P(26), PAY(24)],
-  // fixed assets
-  [P('07'), PAY('07')], [P('07'), 'ACC-ASS-2026-00001'], [P('08'), PAY('08')], [P('08'), 'ACC-ASS-2026-00002'], [P('09'), PAY('09')], [P('09'), 'ACC-ASS-2026-00003'],
-  ['ACC-ASS-2026-00001', 'ACC-JV-2026-00010'], ['ACC-ASS-2026-00002', 'ACC-JV-2026-00009'], ['ACC-ASS-2026-00003', 'ACC-JV-2026-00008'],
   // imports
-  ['PUR-ORD-2026-00007', 'MAT-PRE-2026-00006'], ['MAT-PRE-2026-00006', P(11)], [P(11), PAY(11)], [P(11), 'ACC-JV-2026-00013'], [PAY(11), 'ACC-JV-2026-00013'],
-  ['MAT-LCV-2026-00001', 'MAT-PRE-2026-00006'], [P(12), PAY(12)], [P(13), PAY(13)], [P(14), PAY(14)],
-  ['PUR-ORD-2026-00008', 'MAT-PRE-2026-00007'], ['MAT-PRE-2026-00007', P(15)], [P(15), PAY(18)], [P(15), 'ACC-JV-2026-00014'], [PAY(18), 'ACC-JV-2026-00014'],
-  ['MAT-LCV-2026-00002', 'MAT-PRE-2026-00007'], [P(16), PAY(15)], [P(17), PAY(16)], [P(18), PAY(17)],
-  ['PUR-ORD-2026-00009', 'MAT-PRE-2026-00008'], ['MAT-PRE-2026-00008', P(19)], ['MAT-LCV-2026-00003', 'MAT-PRE-2026-00008'], [P(20), PAY(19)], [P(21), PAY(20)],
-  ['PUR-ORD-2026-00010', 'MAT-PRE-2026-00009'], ['MAT-PRE-2026-00009', P(22)], ['MAT-LCV-2026-00004', 'MAT-PRE-2026-00009'], [P(23), PAY(21)], [P(24), PAY(22)], [P(25), PAY(23)],
-  // payroll
-  ...D.salary_slips.flatMap((s) => [[s.name, 'ACC-JV-2026-00011'], [s.name, 'ACC-JV-2026-00012']]),
-  ...D.salary_slips.map((s, i) => [s.name, `HR-EMP-0000${i + 1}`]),
-  ['HR-EMP-00004', 'HR-LAP-2026-00001'],
+  [PO(5), PR('05')], [PR('05'), P(10)], [P(10), PAY(10)], [P(10), 'INFY-JV-2026-00010'], [PAY(10), 'INFY-JV-2026-00010'],
+  [P(11), PAY(11)], [P(12), PAY(12)], [P(13), PAY(13)],
+  [PO(6), PR('06')], [PR('06'), P(15)], [P(15), PAY(18)], [P(15), 'INFY-JV-2026-00011'], [PAY(18), 'INFY-JV-2026-00011'],
+  [P(16), PAY(15)], [P(17), PAY(16)], [P(18), PAY(17)],
+  [PO(7), PR('07')], [PR('07'), P(19)], [P(20), PAY(19)], [P(21), PAY(20)],
+  [PO(8), PR('08')], [PR('08'), P(22)], [P(23), PAY(21)], [P(24), PAY(22)], [P(25), PAY(23)],
+  // fixed assets: bills, payments, receipts
+  [P('07'), PAY('07')], [P('08'), PAY('08')], [P('09'), PAY('09')], [P(28), PAY(29)], [P(29), PAY(30)], [P(30), PAY(31)], [P(32), PAY(32)], [P(33), PAY(33)],
+  [P(31), PR('09')], [P(32), PR(10)],
 ];
-/* Landed cost charges point at their source invoices: "(ACC-PINV-2026-00012)" */
-for (const l of D.landed_costs) for (const t of l.taxes) {
-  const m = t.description.match(/ACC-PINV-\d{4}-\d{5}/);
-  if (m) EDGE_LIST.push([l.name, m[0]]);
+/* Landed cost vouchers: their receipts and the bills their charges come from, e.g. "(INFY-PINV-2026-00011)" */
+for (const l of D.landed_costs) {
+  for (const r of l.receipts) EDGE_LIST.push([l.name, r.receipt_document]);
+  for (const t of l.taxes) { const m = t.description.match(/INFY-PINV-\d{4}-\d{5}/); if (m) EDGE_LIST.push([l.name, m[0]]); }
 }
 /* Credit / debit notes link to the invoice they correct */
 for (const s of D.sales_invoices) if (s.return_against) EDGE_LIST.push([s.name, s.return_against]);
-/* Timesheets by employee */
-for (const t of D.timesheets) { const e = D.employees.find((x) => x.employee_name === t.employee_name); if (e) EDGE_LIST.push([t.name, e.name]); }
+/* Assets: source bill or receipt, depreciation schedule, its booked journals; capitalization and its CWIP bills */
+for (const a of D.assets) { if (a.purchase_invoice) EDGE_LIST.push([a.name, a.purchase_invoice]); if (a.purchase_receipt) EDGE_LIST.push([a.name, a.purchase_receipt]); }
+for (const ds of D.asset_depreciation_schedules) {
+  EDGE_LIST.push([ds.asset, ds.name]);
+  for (const row of ds.depreciation_schedule) if (row.journal_entry) { EDGE_LIST.push([ds.name, row.journal_entry]); EDGE_LIST.push([ds.asset, row.journal_entry]); }
+}
+for (const c of D.asset_capitalizations) { EDGE_LIST.push([c.name, c.target_asset]); for (const b of c.cwip_bills) EDGE_LIST.push([c.name, b.name]); }
 
 const LINKS = {};
 for (const [a, b] of EDGE_LIST) {
@@ -231,31 +238,25 @@ function itemsOf(doc) {
   return { items: null, from: null };
 }
 
-/* Engineer for a maintenance visit / service job, from the linked timesheet */
-function engineerFor(name) {
-  const ts = linkedOf(name, 'timesheet')[0];
-  const t = ts && D.timesheets.find((x) => x.name === ts);
-  return t ? t.employee_name : null;
-}
-
 /* Derived helper columns */
 D.rfqs.forEach((r) => { r._suppliers = linkedOf(r.name, 'supplier-quotation').map((q) => getDoc('supplier-quotation', q).supplier).join(', '); });
 D.landed_costs.forEach((l) => { l._receipt = l.receipts[0]?.receipt_document; l._supplier = l.receipts[0]?.supplier; });
-D.maintenance_visits.forEach((m) => {
-  m._engineer = engineerFor(m.name) || '—';
+D.maintenance_visits.forEach((m) => { m._claim = linkedOf(m.name, 'warranty-claim')[0] || '—'; });
+const ADS_OF = Object.fromEntries(D.asset_depreciation_schedules.map((x) => [x.asset, x]));
+const ASSET_OF = Object.fromEntries(D.assets.map((x) => [x.name, x]));
+D.assets.forEach((a) => { a._nbv = r3(a.gross_purchase_amount - (a.depreciation_booked || 0)); });
+D.asset_categories.forEach((c) => {
+  const f = (x) => (x ? `${x.account_number} - ${x.account_name}` : '—');
+  c._fa = f(c.fixed_asset_account); c._ad = f(c.accumulated_depreciation_account); c._de = f(c.depreciation_expense_account); c._cwip = c.enable_cwip_accounting ? f(c.cwip_account) : 'Not used';
 });
-D.timesheets.forEach((t) => {
-  const p = linkedOf(t.name, 'project')[0];
-  const v = linkedOf(t.name, 'maintenance-visit')[0];
-  t._activity = p ? `${p} · Compressor overhaul` : v ? `${v} · Motor repair` : '—';
+D.asset_depreciation_schedules.forEach((x) => {
+  x._asset_name = ASSET_OF[x.asset]?.asset_name;
+  x._booked = r3(sum(x.depreciation_schedule.filter((r) => r.journal_entry), 'depreciation_amount'));
 });
-D.assets.forEach((a) => {
-  const jv = linkedOf(a.name, 'journal-entry')[0];
-  a._dep = jv ? getDoc('journal-entry', jv).total_debit : 0;
-  a._nbv = r3(a.gross_purchase_amount - a._dep);
-});
+/* The export caught a few e-invoice statuses mid-write-back (blank); every invoice except the two failures was delivered */
 D.sales_invoices.forEach((s) => {
-  s._einv = EINV_ERR[s.name] ? 'Failed' : s.custom_einvoice_status || 'Not sent';
+  if (!EINV_ERR[s.name] && !s.custom_einvoice_status) s.custom_einvoice_status = 'Delivered';
+  s._einv = EINV_ERR[s.name] ? 'Failed' : s.custom_einvoice_status;
 });
 
 /* ---------- Router ---------- */

@@ -369,3 +369,8 @@ select.fbox { appearance: none; -webkit-appearance: none; color: var(--input-tex
 .form-page .card .tbl td b { color: var(--text-dark); font-weight: 600; }
 
 .tbl th.num { text-align: right; }
+
+.sched-wrap { max-height: 300px; overflow-y: auto; margin: 4px 10px 0; }
+.sched-wrap .tbl thead th { position: sticky; top: 0; z-index: 1; }
+.tbl tr.future td { color: var(--text-soft); }
+.form-page .card .sched-wrap { margin: 6px 20px 0; border: 1px solid var(--border-2); border-radius: 10px; }
